@@ -26,9 +26,12 @@ openai_service = OpenAIService()
 file_processor = FileProcessor()
 conversation_manager = ConversationManager()
 
-@webhook_bp.route('/webhook', methods=['POST'])
+@webhook_bp.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     """Handle LINE webhook events"""
+    # Handle GET requests for webhook verification
+    if request.method == 'GET':
+        return 'Webhook endpoint is active', 200
     # Get signature from headers
     signature = request.headers.get('X-Line-Signature')
     if not signature:
