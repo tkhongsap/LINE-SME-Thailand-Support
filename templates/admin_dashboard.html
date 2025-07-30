@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - LINE Bot Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-6">
+            <i class="fas fa-chart-line me-2"></i>
+            Dashboard
+        </h1>
+        <p class="lead text-muted">Monitor your LINE Bot performance and analytics</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4" id="summaryCards">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-primary">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-white-50">Total Conversations</h6>
+                        <h3 class="card-text text-white" id="totalConversations">-</h3>
+                    </div>
+                    <div class="text-white-50">
+                        <i class="fas fa-comments fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-success">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-white-50">Active Users</h6>
+                        <h3 class="card-text text-white" id="totalUsers">-</h3>
+                    </div>
+                    <div class="text-white-50">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-info">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-white-50">Webhook Events</h6>
+                        <h3 class="card-text text-white" id="totalWebhooks">-</h3>
+                    </div>
+                    <div class="text-white-50">
+                        <i class="fas fa-bolt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card bg-warning">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-dark-50">Avg Response Time</h6>
+                        <h3 class="card-text text-dark" id="avgResponseTime">-</h3>
+                    </div>
+                    <div class="text-dark-50">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Time Period Selector -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Analytics Period
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="timePeriod" id="period7" value="7" checked>
+                        <label class="btn btn-outline-primary" for="period7">7 Days</label>
+                        
+                        <input type="radio" class="btn-check" name="timePeriod" id="period30" value="30">
+                        <label class="btn btn-outline-primary" for="period30">30 Days</label>
+                        
+                        <input type="radio" class="btn-check" name="timePeriod" id="period90" value="90">
+                        <label class="btn btn-outline-primary" for="period90">90 Days</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Daily Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyActivityChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Message Types
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="messageTypesChart" style="height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Charts Row -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-globe me-2"></i>
+                    Language Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="languagesChart" style="height: 250px;"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-file me-2"></i>
+                    File Types
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="fileTypesChart" style="height: 250px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Tables -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="dataTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="conversations-tab" data-bs-toggle="tab" data-bs-target="#conversations" type="button" role="tab">
+                            <i class="fas fa-comments me-1"></i>
+                            Recent Conversations
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="webhooks-tab" data-bs-toggle="tab" data-bs-target="#webhooks" type="button" role="tab">
+                            <i class="fas fa-bolt me-1"></i>
+                            Webhook Events
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs" type="button" role="tab">
+                            <i class="fas fa-list me-1"></i>
+                            System Logs
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="dataTabsContent">
+                    <!-- Conversations Tab -->
+                    <div class="tab-pane fade show active" id="conversations" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Type</th>
+                                        <th>Message</th>
+                                        <th>Response</th>
+                                        <th>Language</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="conversationsTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <nav id="conversationsPagination"></nav>
+                    </div>
+                    
+                    <!-- Webhooks Tab -->
+                    <div class="tab-pane fade" id="webhooks" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Event Type</th>
+                                        <th>User ID</th>
+                                        <th>Source</th>
+                                        <th>Status</th>
+                                        <th>Response Time</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="webhooksTable">
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <nav id="webhooksPagination"></nav>
+                    </div>
+                    
+                    <!-- Logs Tab -->
+                    <div class="tab-pane fade" id="logs" role="tabpanel">
+                        <div class="mb-3">
+                            <select class="form-select" id="logLevelFilter" style="width: auto; display: inline-block;">
+                                <option value="ALL">All Levels</option>
+                                <option value="ERROR">Error</option>
+                                <option value="WARNING">Warning</option>
+                                <option value="INFO">Info</option>
+                                <option value="DEBUG">Debug</option>
+                            </select>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Level</th>
+                                        <th>Message</th>
+                                        <th>User ID</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="logsTable">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <nav id="logsPagination"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
