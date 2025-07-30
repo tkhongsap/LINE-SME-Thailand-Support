@@ -124,11 +124,15 @@ User request: {user_message or 'Please analyze this file and provide a summary.'
                 }
             ]
             
+            # Optimized parameters for GPT-4.1-nano file processing (speed and performance)
             response = self.client.chat.completions.create(
-                model=self.deployment_name,
+                model=self.deployment_name,  # Uses AZURE_OPENAI_DEPLOYMENT_NAME for GPT-4.1-nano
                 messages=messages,
-                max_tokens=1500,
-                temperature=0.7
+                max_tokens=1000,  # Optimized for faster file processing
+                temperature=0.5,  # Lower for more consistent analysis
+                top_p=0.8,
+                frequency_penalty=0.1,
+                presence_penalty=0.1
             )
             
             response_text = response.choices[0].message.content
