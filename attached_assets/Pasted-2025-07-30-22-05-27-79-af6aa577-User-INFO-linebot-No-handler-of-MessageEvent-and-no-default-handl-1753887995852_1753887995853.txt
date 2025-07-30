@@ -1,0 +1,104 @@
+2025-07-30 22:05:27.79
+af6aa577
+User
+INFO:linebot:No handler of MessageEvent and no default handler
+2025-07-30 22:05:27.80
+af6aa577
+User
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): api.line.me:443
+2025-07-30 22:05:28.71
+af6aa577
+User
+DEBUG:urllib3.connectionpool:https://api.line.me:443 "GET /v2/bot/profile/U0aa9b562d6edb7c42aac9668f2215349 HTTP/1.1" 200 180
+2025-07-30 22:05:28.72
+af6aa577
+User
+2025-07-30 15:05:28,721 - services.conversation_manager - INFO - Set language en for user U0aa9b562d6edb7c42aac9668f2215349
+2025-07-30 22:05:28.72
+af6aa577
+User
+INFO:services.conversation_manager:Set language en for user U0aa9b562d6edb7c42aac9668f2215349
+2025-07-30 22:05:28.72
+af6aa577
+User
+2025-07-30 15:05:28,722 - services.openai_service - ERROR - Error generating text response: 'str' object has no attribute 'get'
+2025-07-30 22:05:28.72
+af6aa577
+User
+ERROR:services.openai_service:Error generating text response: 'str' object has no attribute 'get'
+2025-07-30 22:05:28.72
+af6aa577
+User
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): api.line.me:443
+2025-07-30 22:05:28.97
+af6aa577
+User
+DEBUG:urllib3.connectionpool:https://api.line.me:443 "POST /v2/bot/message/reply HTTP/1.1" 200 212
+2025-07-30 22:05:28.97
+af6aa577
+User
+2025-07-30 15:05:28,977 - services.line_service - INFO - Sent text message: เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try ag...
+2025-07-30 22:05:28.97
+af6aa577
+User
+INFO:services.line_service:Sent text message: เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try ag...
+2025-07-30 22:05:28.97
+af6aa577
+User
+2025-07-30 15:05:28,978 - services.conversation_manager - INFO - Saved conversation for user U0aa9b562d6edb7c42aac9668f2215349
+2025-07-30 22:05:28.97
+af6aa577
+User
+INFO:services.conversation_manager:Saved conversation for user U0aa9b562d6edb7c42aac9668f2215349
+2025-07-30 22:05:28.97
+af6aa577
+User
+INFO:user_interactions:User interaction: {'user_id': 'U0aa9b562d6edb7c42aac9668f2215349', 'message_type': 'text', 'user_message': 'Hi', 'bot_response': 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try again.'}
+2025-07-30 22:06:06.56
+351f9cbf
+System
+starting up user application
+2025-07-30 22:06:06.88
+351f9cbf
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2025-07-30 22:06:08.37
+351f9cbf
+User
+[2025-07-30 15:06:08 +0000] [26] [INFO] Starting gunicorn 23.0.0
+2025-07-30 22:06:08.37
+351f9cbf
+User
+[2025-07-30 15:06:08 +0000] [26] [INFO] Listening at: http://0.0.0.0:5000 (26)
+2025-07-30 22:06:08.37
+351f9cbf
+User
+[2025-07-30 15:06:08 +0000] [26] [INFO] Using worker: sync
+2025-07-30 22:06:08.38
+351f9cbf
+User
+[2025-07-30 15:06:08 +0000] [31] [INFO] Booting worker with pid: 31
+2025-07-30 22:06:12.51
+9b48ff12
+System
+system: received signal terminated
+2025-07-30 22:06:12.51
+9b48ff12
+User
+[2025-07-30 15:06:12 +0000] [26] [INFO] Handling signal: term
+2025-07-30 22:06:12.51
+9b48ff12
+User
+[2025-07-30 15:06:12 +0000] [31] [INFO] Worker exiting (pid: 31)
+2025-07-30 22:06:13.11
+9b48ff12
+User
+[2025-07-30 15:06:13 +0000] [26] [INFO] Shutting down: Master
+2025-07-30 22:06:13.14
+9b48ff12
+System
+command finished successfully with exit code 0
+2025-07-30 22:06:13.14
+9b48ff12
+System
+main done, exiting

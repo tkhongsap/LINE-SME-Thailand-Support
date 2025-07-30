@@ -154,9 +154,10 @@ def handle_text_message(message, reply_token, user_id, user_name, user_language)
         # Get conversation history
         conversation_history = conversation_manager.get_conversation_history(user_id)
         
-        # Generate AI response
+        # Generate AI response with proper user context
+        user_context = {'language': detected_language} if detected_language else None
         bot_response = openai_service.generate_text_response(
-            user_message, conversation_history, detected_language
+            user_message, conversation_history, user_context
         )
         
         # Send response
@@ -186,7 +187,8 @@ def handle_image_message(message, reply_token, user_id, user_name, user_language
         image_content = line_service.get_message_content(message_id)
         
         # Analyze image with AI
-        bot_response = openai_service.analyze_image(image_content)
+        user_context = {'language': user_language} if user_language else None
+        bot_response = openai_service.analyze_image(image_content, user_context=user_context)
         
         # Send response
         line_service.send_text_message(reply_token, bot_response)
@@ -220,13 +222,14 @@ def handle_file_message(message, reply_token, user_id, user_name, user_language)
         
         if not success:
             error_messages = SMEPrompts.get_error_messages()
-            error_message = error_messages.get(user_language, error_messages['th']).get(error_code, 'Processing error')
+            error_message = error_messages.get(error_code, 'Processing error')
             line_service.send_text_message(reply_token, error_message)
             return
         
         # Generate AI response based on file content
+        user_context = {'language': user_language} if user_language else None
         bot_response = openai_service.process_file_content(
-            extracted_text, filename
+            extracted_text, filename, user_context=user_context
         )
         
         # Send response
