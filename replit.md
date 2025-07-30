@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 
 ### External Service Integrations
 - **LINE Messaging API**: Handles webhook events, message verification, and response sending
-- **Azure OpenAI**: Provides GPT-4 text generation and vision capabilities
+- **Azure OpenAI**: Provides GPT-4.1-nano optimized for speed and performance with vision capabilities
 - **File Processing**: Supports PDF, DOCX, XLSX, PPTX, code files, and images
 
 ## Key Components

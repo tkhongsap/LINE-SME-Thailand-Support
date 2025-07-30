@@ -30,12 +30,15 @@ class OpenAIService:
         try:
             messages = self._build_messages(user_message, conversation_history, user_context)
             
+            # Optimized parameters for GPT-4.1-nano (speed and performance)
             response = self.client.chat.completions.create(
                 model=self.deployment_name,
                 messages=messages,
-                max_tokens=1000,
-                temperature=0.7,
-                top_p=0.9
+                max_tokens=800,  # Reduced for faster response
+                temperature=0.5,  # Lower for more consistent, faster responses
+                top_p=0.8,  # Slightly lower for better performance
+                frequency_penalty=0.1,  # Prevent repetition
+                presence_penalty=0.1   # Encourage variety
             )
             
             response_text = response.choices[0].message.content
@@ -77,11 +80,15 @@ class OpenAIService:
                 }
             ]
             
+            # Optimized parameters for GPT-4.1-nano image analysis (speed and performance)
             response = self.client.chat.completions.create(
                 model=self.deployment_name,
                 messages=messages,
-                max_tokens=1000,
-                temperature=0.7
+                max_tokens=600,  # Reduced for faster image analysis
+                temperature=0.4,  # Lower for more accurate image descriptions
+                top_p=0.8,
+                frequency_penalty=0.1,
+                presence_penalty=0.1
             )
             
             response_text = response.choices[0].message.content
