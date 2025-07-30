@@ -15,6 +15,7 @@ from models import WebhookEvent
 from app import db
 from utils.logger import setup_logger, log_user_interaction
 from config import Config
+from prompts.sme_prompts import SMEPrompts
 
 logger = setup_logger(__name__)
 
@@ -132,7 +133,7 @@ def handle_message_event(event_data, webhook_event):
         
     except Exception as e:
         logger.error(f"Error handling message event: {e}")
-        send_error_message(reply_token, user_language if 'user_language' in locals() else 'en')
+        send_error_message(reply_token, user_language if 'user_language' in locals() else 'th')
 
 def handle_text_message(message, reply_token, user_id, user_name, user_language):
     """Handle text messages"""
@@ -218,7 +219,8 @@ def handle_file_message(message, reply_token, user_id, user_name, user_language)
         success, error_code, extracted_text = file_processor.process_file(file_content, filename)
         
         if not success:
-            error_message = Config.ERROR_MESSAGES.get(user_language, Config.ERROR_MESSAGES['en']).get(error_code, 'Processing error')
+            error_messages = SMEPrompts.get_error_messages()
+            error_message = error_messages.get(user_language, error_messages['th']).get(error_code, 'Processing error')
             line_service.send_text_message(reply_token, error_message)
             return
         
@@ -334,10 +336,11 @@ def handle_postback_event(event_data, webhook_event):
     except Exception as e:
         logger.error(f"Error handling postback event: {e}")
 
-def send_error_message(reply_token, language='en'):
+def send_error_message(reply_token, language='th'):
     """Send error message to user"""
     try:
-        error_message = Config.ERROR_MESSAGES.get(language, Config.ERROR_MESSAGES['en']).get('processing_error')
+        error_messages = SMEPrompts.get_error_messages()
+        error_message = error_messages.get(language, error_messages['th']).get('processing_error')
         line_service.send_text_message(reply_token, error_message)
     except Exception as e:
         logger.error(f"Failed to send error message: {e}")
