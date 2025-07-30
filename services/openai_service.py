@@ -22,17 +22,13 @@ class OpenAIService:
             self.client = None
             self.deployment_name = None
     
-    def generate_text_response(self, user_message, conversation_history=None, language=None, user_context=None):
+    def generate_text_response(self, user_message, conversation_history=None, user_context=None):
         """Generate text response using Azure OpenAI"""
-        # Auto-detect language if not provided
-        if language is None:
-            language = SMEPrompts.detect_language_from_message(user_message)
-        
         if not self.config_valid or not self.client:
-            return self._get_dev_response(user_message, language)
+            return self._get_dev_response(user_message, 'text')
         
         try:
-            messages = self._build_messages(user_message, conversation_history, language, user_context)
+            messages = self._build_messages(user_message, conversation_history, user_context)
             
             response = self.client.chat.completions.create(
                 model=self.deployment_name,
@@ -43,23 +39,17 @@ class OpenAIService:
             )
             
             response_text = response.choices[0].message.content
-            logger.info(f"Generated text response for language: {language}")
+            logger.info("Generated text response")
             return response_text
             
         except Exception as e:
             logger.error(f"Error generating text response: {e}")
-            return self._get_error_message(language, 'openai_error')
+            return self._get_error_message('openai_error')
     
-    def analyze_image(self, image_content, user_message=None, language=None, user_context=None):
+    def analyze_image(self, image_content, user_message=None, user_context=None):
         """Analyze image using GPT-4 Vision"""
-        # Auto-detect language if not provided and user_message exists
-        if language is None and user_message:
-            language = SMEPrompts.detect_language_from_message(user_message)
-        elif language is None:
-            language = 'th'  # Default to Thai for SME support
-        
         if not self.config_valid or not self.client:
-            return self._get_dev_response("Image uploaded", language, "image")
+            return self._get_dev_response("Image uploaded", "image")
         
         try:
             # Encode image to base64
@@ -68,7 +58,7 @@ class OpenAIService:
             messages = [
                 {
                     "role": "system",
-                    "content": SMEPrompts.get_system_prompt(language, "image_analysis", user_context)
+                    "content": SMEPrompts.get_system_prompt(context_type="image_analysis", user_context=user_context)
                 },
                 {
                     "role": "user",
@@ -100,18 +90,12 @@ class OpenAIService:
             
         except Exception as e:
             logger.error(f"Error analyzing image: {e}")
-            return self._get_error_message(language, 'invalid_image')
+            return self._get_error_message('invalid_image')
     
-    def process_file_content(self, file_content, filename, user_message=None, language=None, user_context=None):
+    def process_file_content(self, file_content, filename, user_message=None, user_context=None):
         """Process file content and generate response"""
-        # Auto-detect language if not provided and user_message exists
-        if language is None and user_message:
-            language = SMEPrompts.detect_language_from_message(user_message)
-        elif language is None:
-            language = 'th'  # Default to Thai for SME support
-        
         if not self.config_valid or not self.client:
-            return self._get_dev_response(f"File uploaded: {filename}", language, "file")
+            return self._get_dev_response(f"File uploaded: {filename}", "file")
         
         try:
             file_prompt = f"""
@@ -125,7 +109,7 @@ User request: {user_message or 'Please analyze this file and provide a summary.'
             messages = [
                 {
                     "role": "system",
-                    "content": SMEPrompts.get_system_prompt(language, "file_analysis", user_context)
+                    "content": SMEPrompts.get_system_prompt(context_type="file_analysis", user_context=user_context)
                 },
                 {
                     "role": "user",
@@ -146,14 +130,14 @@ User request: {user_message or 'Please analyze this file and provide a summary.'
             
         except Exception as e:
             logger.error(f"Error processing file content: {e}")
-            return self._get_error_message(language, 'processing_error')
+            return self._get_error_message('processing_error')
     
-    def _build_messages(self, user_message, conversation_history=None, language='th', user_context=None):
+    def _build_messages(self, user_message, conversation_history=None, user_context=None):
         """Build message history for conversation context"""
         messages = [
             {
                 "role": "system",
-                "content": SMEPrompts.get_system_prompt(language, "conversation", user_context)
+                "content": SMEPrompts.get_system_prompt(context_type="conversation", user_context=user_context)
             }
         ]
         
@@ -172,17 +156,16 @@ User request: {user_message or 'Please analyze this file and provide a summary.'
     
 
     
-    def _get_error_message(self, language, error_type):
-        """Get error message in specified language"""
+    def _get_error_message(self, error_type):
+        """Get error message"""
         error_messages = SMEPrompts.get_error_messages()
-        return error_messages.get(language, error_messages['en']).get(error_type, 'An error occurred.')
+        return error_messages.get(error_type, 'An error occurred.')
     
-    def _get_dev_response(self, user_message, language='th', message_type='text'):
+    def _get_dev_response(self, user_message, message_type='text'):
         """Generate development mode response when OpenAI is not configured"""
         dev_responses = SMEPrompts.get_dev_responses()
-        lang_responses = dev_responses.get(language, dev_responses['th'])
         
         if message_type == 'text':
-            return lang_responses['text'].format(user_message=user_message)
+            return dev_responses['text'].format(user_message=user_message)
         else:
-            return lang_responses.get(message_type, lang_responses['text'].format(user_message=user_message))
+            return dev_responses.get(message_type, dev_responses['text'].format(user_message=user_message))

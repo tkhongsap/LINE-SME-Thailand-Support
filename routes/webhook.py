@@ -186,7 +186,7 @@ def handle_image_message(message, reply_token, user_id, user_name, user_language
         image_content = line_service.get_message_content(message_id)
         
         # Analyze image with AI
-        bot_response = openai_service.analyze_image(image_content, language=user_language)
+        bot_response = openai_service.analyze_image(image_content)
         
         # Send response
         line_service.send_text_message(reply_token, bot_response)
@@ -226,7 +226,7 @@ def handle_file_message(message, reply_token, user_id, user_name, user_language)
         
         # Generate AI response based on file content
         bot_response = openai_service.process_file_content(
-            extracted_text, filename, language=user_language
+            extracted_text, filename
         )
         
         # Send response
