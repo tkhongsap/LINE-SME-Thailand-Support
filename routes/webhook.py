@@ -276,7 +276,11 @@ def register_queue_handlers():
     def handle_text_processing(task):
         """Handle text message processing asynchronously"""
         try:
+            # Import app at module level to avoid circular imports
             from app import app
+            
+            start_time = time.time()
+            logger.info(f"Starting text processing for task {task.id}, user {task.user_id}")
             
             payload = task.payload
             user_message = payload['user_message']
@@ -288,17 +292,23 @@ def register_queue_handlers():
                 conversation_history = conversation_manager.get_conversation_history(task.user_id)
                 
                 # Generate AI response
+                logger.info(f"Generating AI response for task {task.id}")
                 bot_response = openai_service.generate_text_response(
                     user_message, conversation_history, user_context
                 )
+                logger.info(f"AI response generated for task {task.id}, length: {len(bot_response)}")
                 
                 # Send response
+                logger.info(f"Sending response for task {task.id}, reply_token: {task.reply_token}")
                 if task.reply_token and line_service.is_reply_token_valid(task.reply_token):
                     line_service.send_text_message(task.reply_token, bot_response)
+                    logger.info(f"Response sent via reply token for task {task.id}")
                 else:
                     # Use push message if reply token expired
+                    logger.warning(f"Reply token expired for task {task.id}, using push message")
                     messages = [TextSendMessage(text=bot_response)]
                     line_service.push_message(task.user_id, messages)
+                    logger.info(f"Response sent via push message for task {task.id}")
                 
                 # Save conversation
                 user_profile = line_service.get_user_profile(task.user_id)
@@ -311,10 +321,14 @@ def register_queue_handlers():
                 )
                 
                 log_user_interaction(task.user_id, 'text', user_message, bot_response)
-                return {'status': 'success', 'response_length': len(bot_response)}
+                
+                elapsed_time = time.time() - start_time
+                logger.info(f"Completed task {task.id} in {elapsed_time:.2f}s")
+                return {'status': 'success', 'response_length': len(bot_response), 'elapsed_time': elapsed_time}
             
         except Exception as e:
-            logger.error(f"Text processing failed: {e}")
+            elapsed_time = time.time() - start_time if 'start_time' in locals() else 0
+            logger.error(f"Text processing failed for task {task.id} after {elapsed_time:.2f}s: {e}", exc_info=True)
             # Send error message to user
             if 'user_context' in locals():
                 send_error_message_async(task.user_id, task.reply_token, user_context.get('language', 'th'))
@@ -918,18 +932,33 @@ def send_error_message_async(user_id, reply_token, language='th'):
     """Send error message with fallback to push message"""
     try:
         error_messages = SMEPrompts.get_error_messages()
-        lang_errors = error_messages.get(language, error_messages.get('th', {}))
-        error_message = lang_errors.get('processing_error', 'เกิดข้อผิดพลาดในการประมวลผล')
+        
+        # Ensure we have a valid language key
+        if language not in error_messages:
+            language = 'th'
+        
+        lang_errors = error_messages.get(language, {})
+        
+        # Check if lang_errors is a dict before trying to get
+        if isinstance(lang_errors, dict):
+            error_message = lang_errors.get('processing_error', 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try again.')
+        else:
+            error_message = 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try again.'
+        
+        logger.info(f"Sending error message to user {user_id}: {error_message}")
         
         if reply_token and line_service.is_reply_token_valid(reply_token):
             line_service.send_text_message(reply_token, error_message)
+            logger.info(f"Error message sent via reply token")
         else:
             # Fallback to push message
+            logger.info(f"Reply token invalid/expired, using push message")
             messages = [TextSendMessage(text=error_message)]
             line_service.push_message(user_id, messages)
+            logger.info(f"Error message sent via push message")
             
     except Exception as e:
-        logger.error(f"Failed to send error message: {e}")
+        logger.error(f"Failed to send error message to user {user_id}: {e}", exc_info=True)
 
 def handle_text_message(message, reply_token, user_id, user_name, user_language):
     """Handle text messages"""

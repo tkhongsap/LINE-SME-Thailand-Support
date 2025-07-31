@@ -366,7 +366,8 @@ class ThaiIndustryContexts:
     @classmethod
     def get_industry_context(cls, industry: str) -> Dict[str, Any]:
         """Get comprehensive industry context"""
-        return cls.INDUSTRY_PROFILES.get(industry, cls.INDUSTRY_PROFILES['services'])
+        # Default to retail if industry not found
+        return cls.INDUSTRY_PROFILES.get(industry, cls.INDUSTRY_PROFILES['retail'])
     
     @classmethod
     def get_industry_advice_template(cls, industry: str, business_stage: str) -> str:
