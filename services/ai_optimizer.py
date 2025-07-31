@@ -27,9 +27,9 @@ logger = setup_logger(__name__)
 
 class ModelType(Enum):
     """Model types with associated costs and capabilities"""
-    GPT4_TURBO = "gpt-4-turbo"
-    GPT4 = "gpt-4"
-    GPT35_TURBO = "gpt-35-turbo"
+    GPT4_TURBO = "gpt-4.1-nano"
+    GPT4 = "gpt-4.1-nano"
+    GPT35_TURBO = "gpt-4.1-nano"
     
     @property
     def cost_per_1k_tokens(self) -> Dict[str, float]:
@@ -633,32 +633,17 @@ class ModelSelector:
         self.cost_threshold_daily = cost_threshold_daily
         self.daily_costs = defaultdict(float)
         self.task_patterns = {
-            'simple_greeting': ModelType.GPT35_TURBO,
+            'simple_greeting': ModelType.GPT4,
             'business_advice': ModelType.GPT4,
-            'document_analysis': ModelType.GPT4_TURBO,
+            'document_analysis': ModelType.GPT4,
             'image_analysis': ModelType.GPT4
         }
     
     def select_model(self, task_type: str, prompt_complexity: float, 
                     user_tier: str = 'free') -> ModelType:
         """Select optimal model based on task and constraints"""
-        # Check daily cost limit
-        today = datetime.utcnow().date()
-        if self.daily_costs[today] >= self.cost_threshold_daily:
-            logger.warning("Daily cost threshold reached, using cheaper model")
-            return ModelType.GPT35_TURBO
-        
-        # Task-based selection
-        if task_type in self.task_patterns:
-            return self.task_patterns[task_type]
-        
-        # Complexity-based selection
-        if prompt_complexity < 0.3:
-            return ModelType.GPT35_TURBO
-        elif prompt_complexity < 0.7:
-            return ModelType.GPT4
-        else:
-            return ModelType.GPT4_TURBO
+        # Always use the available deployment
+        return ModelType.GPT4
     
     def estimate_task_complexity(self, prompt: str, has_context: bool = False) -> float:
         """Estimate task complexity from prompt"""
@@ -810,7 +795,7 @@ class AIOptimizationManager:
     
     def check_rate_limit_and_optimize(self, messages: List[Dict], user_context: Dict, 
                                      task_type: str = 'conversation') -> Tuple[bool, Dict]:
-        \"\"\"Check rate limits and optimize request if allowed\"\"\"
+        """Check rate limits and optimize request if allowed"""
         # Estimate token usage for rate limiting
         estimated_tokens = sum(len(msg['content']) // 4 for msg in messages if msg.get('content'))
         estimated_tokens = max(estimated_tokens, 500)  # Minimum estimate
@@ -953,7 +938,7 @@ class AIOptimizationManager:
         }
     
     def get_optimization_metrics(self) -> Dict:
-        \"\"\"Get comprehensive optimization metrics\"\"\"
+        """Get comprehensive optimization metrics"""
         uptime_hours = (time.time() - self.start_time) / 3600
         success_rate = (self.successful_requests / max(1, self.total_requests)) * 100
         
@@ -992,7 +977,7 @@ class AIOptimizationManager:
         }
     
     def clear_metrics(self):
-        \"\"\"Reset all metrics (useful for testing or periodic resets)\"\"\"
+        """Reset all metrics (useful for testing or periodic resets)"""
         self.metrics = {
             'cache_hits': 0,
             'cache_misses': 0,
@@ -1011,7 +996,7 @@ class AIOptimizationManager:
         self.response_cache.hit_count = 0
         self.response_cache.miss_count = 0
         
-        logger.info(\"AI optimization metrics cleared\")
+        logger.info("AI optimization metrics cleared")
 
 
 # Singleton instance

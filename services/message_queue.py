@@ -255,13 +255,16 @@ class MessageQueue:
                 logger.error(f"Worker error: {e}")
     
     def _process_task(self, task: QueueTask):
-        """Process a single task"""
+        """Process a single task with timeout handling"""
         task.status = TaskStatus.PROCESSING
         task.started_at = time.time()
         self.processing_tasks[task.id] = task
         self.stats['processing_tasks'] += 1
         
-        logger.info(f"Processing task {task.id} of type {task.task_type}")
+        logger.info(f"Processing task {task.id} of type {task.task_type} for user {task.user_id}")
+        
+        # Set maximum task execution time
+        MAX_TASK_TIMEOUT = 30  # 30 seconds timeout
         
         try:
             # Get handler for task type
@@ -269,8 +272,16 @@ class MessageQueue:
             if not handler:
                 raise Exception(f"No handler registered for task type: {task.task_type}")
             
-            # Execute handler
-            result = handler(task)
+            # Execute handler with timeout
+            from concurrent.futures import TimeoutError
+            future = self.executor.submit(handler, task)
+            
+            try:
+                result = future.result(timeout=MAX_TASK_TIMEOUT)
+            except TimeoutError:
+                logger.error(f"Task {task.id} timed out after {MAX_TASK_TIMEOUT}s")
+                future.cancel()
+                raise Exception(f"Task timed out after {MAX_TASK_TIMEOUT} seconds")
             
             # Mark as completed
             task.status = TaskStatus.COMPLETED
@@ -283,26 +294,30 @@ class MessageQueue:
             self.stats['processing_tasks'] -= 1
             self.stats['completed_tasks'] += 1
             
-            logger.info(f"Completed task {task.id} in {task.completed_at - task.started_at:.2f}s")
+            processing_time = task.completed_at - task.started_at
+            logger.info(f"Completed task {task.id} in {processing_time:.2f}s")
             
         except Exception as e:
-            logger.error(f"Task {task.id} failed: {e}")
+            processing_time = time.time() - task.started_at if task.started_at else 0
+            logger.error(f"Task {task.id} failed after {processing_time:.2f}s: {e}")
             
             task.error_message = str(e)
             task.retry_count += 1
             
-            # Check if we should retry
-            if task.retry_count < task.max_retries:
+            # Check if we should retry (but not for timeout errors)
+            if task.retry_count < task.max_retries and "timed out" not in str(e):
                 task.status = TaskStatus.RETRYING
                 # Re-queue with delay
-                retry_delay = 2 ** task.retry_count  # Exponential backoff
+                retry_delay = min(2 ** task.retry_count, 30)  # Exponential backoff with max 30s
                 threading.Timer(retry_delay, lambda: self.enqueue(task)).start()
-                logger.info(f"Retrying task {task.id} in {retry_delay}s (attempt {task.retry_count + 1})")
+                logger.info(f"Retrying task {task.id} in {retry_delay}s (attempt {task.retry_count + 1}/{task.max_retries})")
             else:
                 # Mark as failed
                 task.status = TaskStatus.FAILED
+                task.completed_at = time.time()
                 self.failed_tasks[task.id] = task
                 self.stats['failed_tasks'] += 1
+                logger.error(f"Task {task.id} permanently failed after {task.retry_count} attempts")
             
             # Remove from processing
             if task.id in self.processing_tasks:

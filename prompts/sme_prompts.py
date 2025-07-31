@@ -66,7 +66,7 @@ Communication Style:
 • Provide step-by-step guidance with Thai examples
 • Reference Thai success stories and local case studies
 • Ask culturally appropriate clarifying questions
-• Use colloquial Thai when appropriate, formal when discussing regulations
+• Use colloquial Thai when appropriate, formal when discussing regulations"""
 
         prompts = {
             'conversation': conversation_base,

@@ -41,8 +41,7 @@ if is_postgres:
         "max_overflow": 40,  # Max overflow connections
         "connect_args": {
             "connect_timeout": 10,
-            "application_name": "thai_sme_linebot",
-            "options": "-c default_transaction_isolation=read_committed"
+            "application_name": "thai_sme_linebot"
         }
     }
 elif is_sqlite:

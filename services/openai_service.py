@@ -44,8 +44,10 @@ class OpenAIService:
     def generate_text_response(self, user_message, conversation_history=None, user_context=None):
         """Generate text response using Azure OpenAI with enhanced Thai SME intelligence"""
         start_time = time.time()
+        logger.info(f"Generating text response for message: {user_message[:50]}...")
         
         if not self.config_valid or not self.client:
+            logger.warning("Using development response - Azure OpenAI not configured")
             return self._get_dev_response(user_message, 'text')
         
         try:
@@ -176,7 +178,7 @@ class OpenAIService:
                 category='errors'
             )
             
-            logger.error(f"Error generating text response: {e}")
+            logger.error(f"Error generating text response: {e}", exc_info=True)
             return self._get_error_message('openai_error')
     
     def analyze_image(self, image_content, user_message=None, user_context=None):

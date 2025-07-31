@@ -27,10 +27,10 @@ class RichMenuManager:
         
         # Menu templates for different contexts
         self.menu_templates = {
-            'default': self._create_default_menu_template,
-            'business': self._create_business_menu_template,
-            'document': self._create_document_menu_template,
-            'help': self._create_help_menu_template
+            'default': lambda: self.create_thai_sme_menu(),
+            'business': lambda: self.create_business_context_menu(),
+            'document': lambda: self.create_thai_sme_menu(),
+            'help': lambda: self.create_thai_sme_menu()
         }
     
     def create_thai_sme_menu(self, language: str = 'th') -> Optional[str]:

@@ -8,7 +8,9 @@
       "Bash(mkdir:*)",
       "Bash(git add:*)",
       "Bash(python:*)",
-      "WebFetch(domain:developers.line.biz)"
+      "WebFetch(domain:developers.line.biz)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }
