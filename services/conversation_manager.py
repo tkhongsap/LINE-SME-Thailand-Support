@@ -150,6 +150,32 @@ class ConversationManager:
             db.session.rollback()
             return False
     
+    def detect_and_update_language(self, user_id, message_text):
+        """Detect language from message and update user preference if needed"""
+        try:
+            from flask import has_app_context
+            
+            if not has_app_context():
+                logger.warning("detect_and_update_language called outside application context")
+                return Config.DEFAULT_LANGUAGE
+            
+            # Get current user language
+            current_lang = self.get_user_language(user_id)
+            
+            # Simple language detection logic
+            detected_lang = detect_language(message_text) if message_text else current_lang
+            
+            # Update if different and detected language is supported
+            if detected_lang != current_lang and detected_lang in Config.SUPPORTED_LANGUAGES:
+                self.set_user_language(user_id, detected_lang)
+                return detected_lang
+            
+            return current_lang
+            
+        except Exception as e:
+            logger.error(f"Error detecting/updating language: {e}")
+            return Config.DEFAULT_LANGUAGE
+    
     def get_conversation_stats(self, user_id=None, days=7):
         """Get conversation statistics with optimized aggregation queries"""
         try:

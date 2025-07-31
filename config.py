@@ -39,9 +39,9 @@ class Config:
     
     # Model Configuration
     PREFERRED_MODELS = {
-        'simple': os.environ.get('SIMPLE_MODEL', 'gpt-35-turbo'),
-        'complex': os.environ.get('COMPLEX_MODEL', 'gpt-4'),
-        'vision': os.environ.get('VISION_MODEL', 'gpt-4')
+        'simple': os.environ.get('SIMPLE_MODEL', 'gpt-4.1-nano'),
+        'complex': os.environ.get('COMPLEX_MODEL', 'gpt-4.1-nano'),
+        'vision': os.environ.get('VISION_MODEL', 'gpt-4.1-nano')
     }
     
     # Response Optimization
