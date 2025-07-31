@@ -40,8 +40,7 @@ class OptimizedLineService:
             # Initialize LINE SDK with custom session for connection pooling
             self.session = self._create_pooled_session()
             self.line_bot_api = LineBotApi(
-                Config.LINE_CHANNEL_ACCESS_TOKEN,
-                http_client=self.session
+                Config.LINE_CHANNEL_ACCESS_TOKEN
             )
             self.handler = WebhookHandler(Config.LINE_CHANNEL_SECRET)
         else:

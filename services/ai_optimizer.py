@@ -810,7 +810,7 @@ class AIOptimizationManager:
     
     def check_rate_limit_and_optimize(self, messages: List[Dict], user_context: Dict, 
                                      task_type: str = 'conversation') -> Tuple[bool, Dict]:
-        \"\"\"Check rate limits and optimize request if allowed\"\"\"
+        """Check rate limits and optimize request if allowed"""
         # Estimate token usage for rate limiting
         estimated_tokens = sum(len(msg['content']) // 4 for msg in messages if msg.get('content'))
         estimated_tokens = max(estimated_tokens, 500)  # Minimum estimate
@@ -953,7 +953,7 @@ class AIOptimizationManager:
         }
     
     def get_optimization_metrics(self) -> Dict:
-        \"\"\"Get comprehensive optimization metrics\"\"\"
+        """Get comprehensive optimization metrics"""
         uptime_hours = (time.time() - self.start_time) / 3600
         success_rate = (self.successful_requests / max(1, self.total_requests)) * 100
         
@@ -992,7 +992,7 @@ class AIOptimizationManager:
         }
     
     def clear_metrics(self):
-        \"\"\"Reset all metrics (useful for testing or periodic resets)\"\"\"
+        """Reset all metrics (useful for testing or periodic resets)"""
         self.metrics = {
             'cache_hits': 0,
             'cache_misses': 0,
@@ -1011,7 +1011,7 @@ class AIOptimizationManager:
         self.response_cache.hit_count = 0
         self.response_cache.miss_count = 0
         
-        logger.info(\"AI optimization metrics cleared\")
+        logger.info("AI optimization metrics cleared")
 
 
 # Singleton instance

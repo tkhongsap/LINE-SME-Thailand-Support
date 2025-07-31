@@ -3,7 +3,16 @@ from datetime import datetime
 from sqlalchemy import Text, DateTime, Integer, String, Boolean, Index, event
 from sqlalchemy.schema import CreateIndex
 from sqlalchemy.ext.hybrid import hybrid_property
-from utils.encryption import encryption_service
+
+# Lazy import to avoid circular dependency
+_encryption_service = None
+
+def get_encryption_service():
+    global _encryption_service
+    if _encryption_service is None:
+        from utils.encryption import encryption_service
+        _encryption_service = encryption_service
+    return _encryption_service
 
 class Conversation(db.Model):
     """Store conversation context and history with PDPA compliance"""
@@ -32,7 +41,7 @@ class Conversation(db.Model):
         if not self._user_message_encrypted:
             return None
         try:
-            return encryption_service.decrypt_text(self._user_message_encrypted, self.data_classification)
+            return get_encryption_service().decrypt_text(self._user_message_encrypted, self.data_classification)
         except Exception:
             return '[DECRYPTION_ERROR]'
     
@@ -42,7 +51,7 @@ class Conversation(db.Model):
         if value is None:
             self._user_message_encrypted = None
         else:
-            self._user_message_encrypted = encryption_service.encrypt_text(value, self.data_classification)
+            self._user_message_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
     
     @hybrid_property
     def bot_response(self):
@@ -50,7 +59,7 @@ class Conversation(db.Model):
         if not self._bot_response_encrypted:
             return None
         try:
-            return encryption_service.decrypt_text(self._bot_response_encrypted, self.data_classification)
+            return get_encryption_service().decrypt_text(self._bot_response_encrypted, self.data_classification)
         except Exception:
             return '[DECRYPTION_ERROR]'
     
@@ -60,16 +69,16 @@ class Conversation(db.Model):
         if value is None:
             self._bot_response_encrypted = None
         else:
-            self._bot_response_encrypted = encryption_service.encrypt_text(value, self.data_classification)
+            self._bot_response_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
     
     def anonymize_for_analytics(self):
         """Return anonymized version for analytics"""
         return {
             'id': self.id,
-            'user_id_hash': self.user_id_hash or encryption_service.hash_user_id(self.user_id),
+            'user_id_hash': self.user_id_hash or get_encryption_service().hash_user_id(self.user_id),
             'message_type': self.message_type,
-            'user_message': encryption_service.anonymize_message(self.user_message, 'partial') if self.user_message else None,
-            'bot_response': encryption_service.anonymize_message(self.bot_response, 'partial') if self.bot_response else None,
+            'user_message': get_encryption_service().anonymize_message(self.user_message, 'partial') if self.user_message else None,
+            'bot_response': get_encryption_service().anonymize_message(self.bot_response, 'partial') if self.bot_response else None,
             'file_type': self.file_type,
             'language': self.language,
             'created_at': self.created_at
@@ -105,7 +114,7 @@ class SystemLog(db.Model):
         if not self._error_details_encrypted:
             return None
         try:
-            return encryption_service.decrypt_text(self._error_details_encrypted, self.data_classification)
+            return get_encryption_service().decrypt_text(self._error_details_encrypted, self.data_classification)
         except Exception:
             return '[DECRYPTION_ERROR]'
     
@@ -115,7 +124,7 @@ class SystemLog(db.Model):
         if value is None:
             self._error_details_encrypted = None
         else:
-            self._error_details_encrypted = encryption_service.encrypt_text(value, self.data_classification)
+            self._error_details_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
     
     # Composite indexes for filtering and reporting
     __table_args__ = (
@@ -203,38 +212,30 @@ class DataProcessingLog(db.Model):
         Index('idx_data_category_date', 'data_category', 'created_at'),
     )
 
-# Database performance optimization events
-@event.listens_for(db.Model, 'before_bulk_insert')
-def before_bulk_insert(query_context, query, query_dict, result):
-    """Optimize bulk inserts by disabling autoflush"""
-    db.session.autoflush = False
-
-@event.listens_for(db.Model, 'after_bulk_insert')
-def after_bulk_insert(query_context, query, query_dict, result):
-    """Re-enable autoflush after bulk operations"""
-    db.session.autoflush = True
+# Note: Removed invalid bulk insert event listeners as they don't exist in SQLAlchemy
+# Database performance optimization can be handled through session configuration instead
 
 # PDPA compliance event handlers
 @event.listens_for(Conversation, 'before_insert')
 def before_conversation_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting conversation"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = encryption_service.hash_user_id(target.user_id)
+        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
 
 @event.listens_for(SystemLog, 'before_insert') 
 def before_system_log_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting system log"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = encryption_service.hash_user_id(target.user_id)
+        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
 
 @event.listens_for(WebhookEvent, 'before_insert')
 def before_webhook_event_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting webhook event"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = encryption_service.hash_user_id(target.user_id)
+        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
 
 @event.listens_for(UserConsent, 'before_insert')
 def before_user_consent_insert(mapper, connection, target):
     """Auto-populate anonymized user ID for consent records"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = encryption_service.hash_user_id(target.user_id)
+        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
