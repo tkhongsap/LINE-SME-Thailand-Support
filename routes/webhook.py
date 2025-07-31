@@ -275,65 +275,118 @@ def register_queue_handlers():
     
     def handle_text_processing(task):
         """Handle text message processing asynchronously"""
+        start_time = time.time()
+        current_step = "initialization"
+        user_context = None
+        
         try:
             # Import app at module level to avoid circular imports
             from app import app
             
-            start_time = time.time()
             logger.info(f"Starting text processing for task {task.id}, user {task.user_id}")
+            logger.info(f"Task payload keys: {list(task.payload.keys())}")
             
             payload = task.payload
             user_message = payload['user_message']
             user_context = payload.get('user_context', {})
             
+            logger.info(f"Task {task.id} - Processing message: '{user_message[:100]}...'")
+            logger.info(f"Task {task.id} - User context: {user_context}")
+            
+            current_step = "app_context"
             # Use Flask app context for database operations
             with app.app_context():
-                # Get conversation history
-                conversation_history = conversation_manager.get_conversation_history(task.user_id)
+                current_step = "conversation_history"
+                logger.info(f"Task {task.id} - Getting conversation history...")
+                try:
+                    conversation_history = conversation_manager.get_conversation_history(task.user_id)
+                    logger.info(f"Task {task.id} - Retrieved {len(conversation_history) if conversation_history else 0} previous messages")
+                except Exception as hist_e:
+                    logger.error(f"Task {task.id} - Failed to get conversation history: {hist_e}", exc_info=True)
+                    conversation_history = []  # Continue with empty history
                 
+                current_step = "ai_generation"
                 # Generate AI response
-                logger.info(f"Generating AI response for task {task.id}")
-                bot_response = openai_service.generate_text_response(
-                    user_message, conversation_history, user_context
-                )
-                logger.info(f"AI response generated for task {task.id}, length: {len(bot_response)}")
+                logger.info(f"Task {task.id} - Generating AI response...")
+                logger.info(f"Task {task.id} - OpenAI service config valid: {openai_service.config_valid}")
                 
+                try:
+                    bot_response = openai_service.generate_text_response(
+                        user_message, conversation_history, user_context
+                    )
+                    logger.info(f"Task {task.id} - AI response generated successfully, length: {len(bot_response)}")
+                    logger.info(f"Task {task.id} - Response preview: '{bot_response[:200]}...'")
+                except Exception as ai_e:
+                    logger.error(f"Task {task.id} - AI generation failed: {ai_e}", exc_info=True)
+                    logger.error(f"Task {task.id} - AI generation error type: {type(ai_e).__name__}")
+                    logger.error(f"Task {task.id} - Message that failed: '{user_message}'")
+                    logger.error(f"Task {task.id} - Context that failed: {user_context}")
+                    raise  # Re-raise to trigger error handling
+                
+                current_step = "line_service_send"
                 # Send response
-                logger.info(f"Sending response for task {task.id}, reply_token: {task.reply_token}")
-                if task.reply_token and line_service.is_reply_token_valid(task.reply_token):
-                    line_service.send_text_message(task.reply_token, bot_response)
-                    logger.info(f"Response sent via reply token for task {task.id}")
-                else:
-                    # Use push message if reply token expired
-                    logger.warning(f"Reply token expired for task {task.id}, using push message")
-                    messages = [TextSendMessage(text=bot_response)]
-                    line_service.push_message(task.user_id, messages)
-                    logger.info(f"Response sent via push message for task {task.id}")
+                logger.info(f"Task {task.id} - Sending response, reply_token: {task.reply_token}")
+                logger.info(f"Task {task.id} - Reply token valid: {line_service.is_reply_token_valid(task.reply_token) if task.reply_token else 'N/A'}")
                 
+                try:
+                    if task.reply_token and line_service.is_reply_token_valid(task.reply_token):
+                        line_service.send_text_message(task.reply_token, bot_response)
+                        logger.info(f"Task {task.id} - Response sent via reply token successfully")
+                    else:
+                        # Use push message if reply token expired
+                        logger.warning(f"Task {task.id} - Reply token expired/invalid, using push message")
+                        messages = [TextSendMessage(text=bot_response)]
+                        line_service.push_message(task.user_id, messages)
+                        logger.info(f"Task {task.id} - Response sent via push message successfully")
+                except Exception as send_e:
+                    logger.error(f"Task {task.id} - Failed to send response: {send_e}", exc_info=True)
+                    logger.error(f"Task {task.id} - Send error type: {type(send_e).__name__}")
+                    # Don't raise here - message was generated successfully, just delivery failed
+                
+                current_step = "database_save"
                 # Save conversation
-                user_profile = line_service.get_user_profile(task.user_id)
-                user_name = user_profile.get('display_name', 'Unknown') if user_profile else 'Unknown'
-                detected_language = user_context.get('language', 'th')
-                
-                conversation_manager.save_conversation(
-                    task.user_id, user_name, 'text', user_message, bot_response, 
-                    language=detected_language
-                )
-                
-                log_user_interaction(task.user_id, 'text', user_message, bot_response)
+                try:
+                    user_profile = line_service.get_user_profile(task.user_id)
+                    user_name = user_profile.get('display_name', 'Unknown') if user_profile else 'Unknown'
+                    detected_language = user_context.get('language', 'th')
+                    
+                    logger.info(f"Task {task.id} - Saving conversation for user {user_name}")
+                    conversation_manager.save_conversation(
+                        task.user_id, user_name, 'text', user_message, bot_response, 
+                        language=detected_language
+                    )
+                    
+                    log_user_interaction(task.user_id, 'text', user_message, bot_response)
+                    logger.info(f"Task {task.id} - Conversation saved successfully")
+                except Exception as save_e:
+                    logger.error(f"Task {task.id} - Failed to save conversation: {save_e}", exc_info=True)
+                    # Don't raise here - core functionality worked
                 
                 elapsed_time = time.time() - start_time
-                logger.info(f"Completed task {task.id} in {elapsed_time:.2f}s")
+                logger.info(f"Task {task.id} - Completed successfully in {elapsed_time:.2f}s")
                 return {'status': 'success', 'response_length': len(bot_response), 'elapsed_time': elapsed_time}
             
         except Exception as e:
-            elapsed_time = time.time() - start_time if 'start_time' in locals() else 0
-            logger.error(f"Text processing failed for task {task.id} after {elapsed_time:.2f}s: {e}", exc_info=True)
+            elapsed_time = time.time() - start_time
+            logger.error(f"Text processing FAILED for task {task.id} after {elapsed_time:.2f}s at step '{current_step}': {e}")
+            logger.error(f"Task {task.id} - Error type: {type(e).__name__}")
+            logger.error(f"Task {task.id} - Error details: {str(e)}")
+            logger.error(f"Task {task.id} - Failed at step: {current_step}")
+            logger.error(f"Task {task.id} - User message: '{task.payload.get('user_message', 'N/A')}'")
+            logger.error(f"Task {task.id} - User context: {user_context}")
+            logger.error(f"Task {task.id} - Full stack trace:", exc_info=True)
+            
             # Send error message to user
-            if 'user_context' in locals():
-                send_error_message_async(task.user_id, task.reply_token, user_context.get('language', 'th'))
-            else:
-                send_error_message_async(task.user_id, task.reply_token, 'th')
+            try:
+                logger.info(f"Task {task.id} - Sending error message to user...")
+                if user_context:
+                    send_error_message_async(task.user_id, task.reply_token, user_context.get('language', 'th'))
+                else:
+                    send_error_message_async(task.user_id, task.reply_token, 'th')
+                logger.info(f"Task {task.id} - Error message sent to user")
+            except Exception as error_send_e:
+                logger.error(f"Task {task.id} - Failed to send error message: {error_send_e}", exc_info=True)
+            
             raise
     
     def handle_file_processing(task):
@@ -546,6 +599,16 @@ def webhook():
         abort(400)
     except Exception as e:
         logger.error(f"Webhook processing error: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
+        logger.error(f"Request details - Method: {request.method}, Path: {request.path}")
+        logger.error(f"Request body length: {len(body) if 'body' in locals() else 'N/A'}")
+        if 'events' in locals():
+            logger.error(f"Events count: {len(events) if events else 0}")
+            if events:
+                logger.error(f"First event type: {events[0].get('type', 'unknown')}")
+                logger.error(f"First event user_id: {events[0].get('source', {}).get('userId', 'N/A')}")
+        logger.error("Full stack trace:", exc_info=True)
         line_api_circuit_breaker.record_failure()
         abort(500)
 
@@ -605,6 +668,11 @@ def process_event_async(event_data):
         
     except Exception as e:
         logger.error(f"Error processing event: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Event type: {event_data.get('type', 'unknown')}")
+        logger.error(f"User ID: {event_data.get('source', {}).get('userId', 'N/A')}")
+        logger.error(f"Event data keys: {list(event_data.keys())}")
+        logger.error("Event processing stack trace:", exc_info=True)
         if 'webhook_event' in locals():
             webhook_event.error_message = str(e)
             try:
@@ -931,31 +999,41 @@ def handle_postback_event_optimized(event_data, webhook_event):
 def send_error_message_async(user_id, reply_token, language='th'):
     """Send error message with fallback to push message"""
     try:
+        logger.warning(f"🚨 SENDING ERROR MESSAGE to user {user_id} (language: {language})")
+        logger.warning(f"Error message trigger - reply_token: {reply_token}")
+        
         error_messages = SMEPrompts.get_error_messages()
+        logger.info(f"Available error message keys: {list(error_messages.keys())}")
         
         # Ensure we have a valid language key
         if language not in error_messages:
+            logger.warning(f"Language '{language}' not in error messages, falling back to 'th'")
             language = 'th'
         
         lang_errors = error_messages.get(language, {})
+        logger.info(f"Error messages for language '{language}': {lang_errors}")
         
         # Check if lang_errors is a dict before trying to get
         if isinstance(lang_errors, dict):
             error_message = lang_errors.get('processing_error', 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try again.')
         else:
+            logger.warning(f"lang_errors is not a dict: {type(lang_errors)}, using default message")
             error_message = 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง / An error occurred while processing. Please try again.'
         
-        logger.info(f"Sending error message to user {user_id}: {error_message}")
+        logger.warning(f"🚨 ERROR MESSAGE CONTENT: {error_message}")
+        logger.warning(f"This matches the error message users are seeing in screenshots")
         
         if reply_token and line_service.is_reply_token_valid(reply_token):
+            logger.info(f"Sending error message via reply token to user {user_id}")
             line_service.send_text_message(reply_token, error_message)
-            logger.info(f"Error message sent via reply token")
+            logger.warning(f"🚨 ERROR MESSAGE SENT via reply token to user {user_id}")
         else:
             # Fallback to push message
-            logger.info(f"Reply token invalid/expired, using push message")
+            logger.info(f"Reply token invalid/expired for user {user_id}, using push message")
+            logger.info(f"Reply token valid check: {line_service.is_reply_token_valid(reply_token) if reply_token else 'No token'}")
             messages = [TextSendMessage(text=error_message)]
             line_service.push_message(user_id, messages)
-            logger.info(f"Error message sent via push message")
+            logger.warning(f"🚨 ERROR MESSAGE SENT via push message to user {user_id}")
             
     except Exception as e:
         logger.error(f"Failed to send error message to user {user_id}: {e}", exc_info=True)
