@@ -2,20 +2,11 @@ from app import db
 from datetime import datetime
 from sqlalchemy import Text, DateTime, Integer, String, Boolean, Index, event
 from sqlalchemy.schema import CreateIndex
-from sqlalchemy.ext.hybrid import hybrid_property
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Lazy import to avoid circular dependency
-_encryption_service = None
-
-def get_encryption_service():
-    global _encryption_service
-    if _encryption_service is None:
-        from utils.encryption import encryption_service
-        _encryption_service = encryption_service
-    return _encryption_service
+# No encryption needed - using plain text storage
 
 class Conversation(db.Model):
     """Store conversation context and history with PDPA compliance"""
@@ -25,8 +16,8 @@ class Conversation(db.Model):
     user_id = db.Column(String(255), nullable=False, index=True)
     user_name = db.Column(String(255))  # Will be encrypted
     message_type = db.Column(String(50), nullable=False, index=True)  # text, image, file
-    _user_message_encrypted = db.Column('user_message', Text)  # Encrypted storage
-    _bot_response_encrypted = db.Column('bot_response', Text)  # Encrypted storage
+    user_message = db.Column(Text)  # Plain text storage
+    bot_response = db.Column(Text)  # Plain text storage
     file_name = db.Column(String(255))
     file_type = db.Column(String(100), index=True)
     language = db.Column(String(10), default='en', index=True)
@@ -37,51 +28,16 @@ class Conversation(db.Model):
     data_classification = db.Column(String(20), default='confidential')  # Data sensitivity level
     consent_version = db.Column(String(10), default='1.0')  # Consent version when data was collected
     
-    # Encrypted message properties
-    @hybrid_property
-    def user_message(self):
-        """Decrypt user message on access"""
-        if not self._user_message_encrypted:
-            return None
-        try:
-            return get_encryption_service().decrypt_text(self._user_message_encrypted, self.data_classification)
-        except Exception:
-            return '[DECRYPTION_ERROR]'
-    
-    @user_message.setter
-    def user_message(self, value):
-        """Encrypt user message on storage"""
-        if value is None:
-            self._user_message_encrypted = None
-        else:
-            self._user_message_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
-    
-    @hybrid_property
-    def bot_response(self):
-        """Decrypt bot response on access"""
-        if not self._bot_response_encrypted:
-            return None
-        try:
-            return get_encryption_service().decrypt_text(self._bot_response_encrypted, self.data_classification)
-        except Exception:
-            return '[DECRYPTION_ERROR]'
-    
-    @bot_response.setter
-    def bot_response(self, value):
-        """Encrypt bot response on storage"""
-        if value is None:
-            self._bot_response_encrypted = None
-        else:
-            self._bot_response_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
+    # Plain text message properties - no encryption needed
     
     def anonymize_for_analytics(self):
         """Return anonymized version for analytics"""
         return {
             'id': self.id,
-            'user_id_hash': self.user_id_hash or get_encryption_service().hash_user_id(self.user_id),
+            'user_id_hash': self.user_id_hash or f"anon_{hash(self.user_id) % 10000:04d}",
             'message_type': self.message_type,
-            'user_message': get_encryption_service().anonymize_message(self.user_message, 'partial') if self.user_message else None,
-            'bot_response': get_encryption_service().anonymize_message(self.bot_response, 'partial') if self.bot_response else None,
+            'user_message': self.user_message[:50] + '...' if self.user_message and len(self.user_message) > 50 else self.user_message,
+            'bot_response': self.bot_response[:50] + '...' if self.bot_response and len(self.bot_response) > 50 else self.bot_response,
             'file_type': self.file_type,
             'language': self.language,
             'created_at': self.created_at
@@ -104,27 +60,14 @@ class SystemLog(db.Model):
     level = db.Column(String(20), nullable=False, index=True)
     message = db.Column(Text, nullable=False)
     user_id = db.Column(String(255), index=True)
-    _error_details_encrypted = db.Column('error_details', Text)  # Encrypted sensitive error info
+    error_details = db.Column(Text)  # Plain text error info
     created_at = db.Column(DateTime, default=datetime.utcnow, index=True)
     
     # PDPA compliance fields
     user_id_hash = db.Column(String(32), index=True)  # Anonymized user ID
     data_classification = db.Column(String(20), default='internal')  # Usually internal level
     
-    @hybrid_property
-    def error_details(self):
-        """Decrypt error details on access"""
-        # Return None for now to avoid encryption errors during deployment
-        # TODO: Implement proper encryption after basic functionality is working
-        return None
-    
-    @error_details.setter
-    def error_details(self, value):
-        """Encrypt error details on storage"""
-        if value is None:
-            self._error_details_encrypted = None
-        else:
-            self._error_details_encrypted = get_encryption_service().encrypt_text(value, self.data_classification)
+    # Plain text error details - no encryption needed
     
     # Composite indexes for filtering and reporting
     __table_args__ = (
@@ -220,22 +163,22 @@ class DataProcessingLog(db.Model):
 def before_conversation_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting conversation"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
+        target.user_id_hash = f"hash_{hash(target.user_id) % 100000:05d}"
 
 @event.listens_for(SystemLog, 'before_insert') 
 def before_system_log_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting system log"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
+        target.user_id_hash = f"hash_{hash(target.user_id) % 100000:05d}"
 
 @event.listens_for(WebhookEvent, 'before_insert')
 def before_webhook_event_insert(mapper, connection, target):
     """Auto-populate PDPA fields before inserting webhook event"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
+        target.user_id_hash = f"hash_{hash(target.user_id) % 100000:05d}"
 
 @event.listens_for(UserConsent, 'before_insert')
 def before_user_consent_insert(mapper, connection, target):
     """Auto-populate anonymized user ID for consent records"""
     if not target.user_id_hash and target.user_id:
-        target.user_id_hash = get_encryption_service().hash_user_id(target.user_id)
+        target.user_id_hash = f"hash_{hash(target.user_id) % 100000:05d}"

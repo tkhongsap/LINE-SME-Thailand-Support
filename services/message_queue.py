@@ -272,26 +272,17 @@ class MessageQueue:
             if not handler:
                 raise Exception(f"No handler registered for task type: {task.task_type}")
             
-            # Execute handler with proper timeout handling
+            # Execute handler with ThreadPoolExecutor timeout (compatible with worker threads)
             from concurrent.futures import TimeoutError
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutError(f"Task {task.id} timed out after {MAX_TASK_TIMEOUT}s")
-            
-            # Set up timeout for the current thread
-            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(MAX_TASK_TIMEOUT)
             
             try:
-                result = handler(task)
-                signal.alarm(0)  # Cancel the alarm
-            except TimeoutError as e:
+                # Use executor with timeout - this works correctly in worker threads
+                future = self.executor.submit(handler, task)
+                result = future.result(timeout=MAX_TASK_TIMEOUT)
+            except TimeoutError:
                 logger.error(f"Task {task.id} timed out after {MAX_TASK_TIMEOUT}s")
+                # Note: Handler may continue running in background (normal Python behavior)
                 raise Exception(f"Task timed out after {MAX_TASK_TIMEOUT} seconds")
-            finally:
-                signal.signal(signal.SIGALRM, old_handler)  # Restore original handler
-                signal.alarm(0)  # Ensure alarm is cancelled
             
             # Mark as completed
             task.status = TaskStatus.COMPLETED
