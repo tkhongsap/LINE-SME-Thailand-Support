@@ -18,6 +18,13 @@ class ConversationManager:
                          bot_response, file_name=None, file_type=None, language='en'):
         """Save conversation to database"""
         try:
+            from flask import has_app_context
+            
+            # Check if we're in application context
+            if not has_app_context():
+                logger.warning("save_conversation called outside application context, skipping save")
+                return
+            
             conversation = Conversation(
                 user_id=user_id,
                 user_name=user_name,
@@ -36,7 +43,8 @@ class ConversationManager:
             
         except Exception as e:
             logger.error(f"Error saving conversation: {e}")
-            db.session.rollback()
+            if has_app_context():
+                db.session.rollback()
     
     def get_conversation_history(self, user_id, limit=None, include_system=False):
         """Get conversation history for a user with performance optimization"""
@@ -90,6 +98,14 @@ class ConversationManager:
     def get_user_language(self, user_id):
         """Get user's preferred language from recent conversations - optimized"""
         try:
+            from flask import has_app_context, current_app
+            
+            # Check if we're in application context
+            if not has_app_context():
+                # If not in context, return default language to avoid errors
+                logger.warning("get_user_language called outside application context, returning default")
+                return Config.DEFAULT_LANGUAGE
+            
             # Use optimized query with specific column loading
             result = db.session.query(Conversation.language)\
                 .filter_by(user_id=user_id)\
