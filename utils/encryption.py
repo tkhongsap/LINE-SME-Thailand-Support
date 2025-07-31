@@ -114,6 +114,16 @@ class DataEncryption:
             if not encrypted_text or data_level == 'public':
                 return encrypted_text
             
+            # Handle SQLAlchemy attribute passed by mistake
+            if hasattr(encrypted_text, '__class__') and 'sqlalchemy' in str(encrypted_text.__class__):
+                logger.error(f"SQLAlchemy attribute passed to decrypt instead of value: {encrypted_text}")
+                return '[INVALID_DECRYPT_INPUT]'
+            
+            # Ensure we have a string
+            if not isinstance(encrypted_text, str):
+                logger.error(f"Invalid encrypted_text type: {type(encrypted_text)}")
+                return '[INVALID_DECRYPT_TYPE]'
+            
             # Decode from base64
             encrypted_data = base64.urlsafe_b64decode(encrypted_text.encode('utf-8'))
             

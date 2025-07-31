@@ -50,7 +50,7 @@ def verify_line_signature(body, signature):
         return False
     
     try:
-        channel_secret = current_app.config.get('LINE_CHANNEL_SECRET')
+        channel_secret = Config.LINE_CHANNEL_SECRET
         if not channel_secret:
             logger.error("LINE_CHANNEL_SECRET not configured")
             return False
