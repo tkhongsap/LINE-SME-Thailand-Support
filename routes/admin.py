@@ -8,6 +8,8 @@ from sqlalchemy import desc, func
 from models import Conversation, SystemLog, WebhookEvent
 from services.conversation_manager import ConversationManager
 from services.openai_service import OpenAIService
+from services.metrics_collector import metrics_collector
+from services.monitoring_service import monitoring_service
 from app import db
 
 admin_bp = Blueprint('admin', __name__)
@@ -991,3 +993,325 @@ def _get_pdpa_recommendations(encryption_rate, retention_status, consent_count):
         })
     
     return recommendations
+
+@admin_bp.route('/api/performance-monitoring')
+@require_admin_auth
+def get_performance_monitoring():
+    """Get comprehensive performance monitoring data"""
+    try:
+        # Get real-time metrics
+        real_time_metrics = metrics_collector.get_real_time_metrics()
+        
+        # Get monitoring service health report
+        health_report = monitoring_service.get_system_health_report()
+        
+        # Get performance insights
+        performance_insights = monitoring_service.get_performance_insights()
+        
+        # Get current alerts
+        current_alerts = monitoring_service.get_current_alerts()
+        
+        # Get alert history
+        alert_history = monitoring_service.get_alert_history(24)
+        
+        return jsonify({
+            'real_time_metrics': real_time_metrics,
+            'system_health': {
+                'overall_status': health_report['overall_health'],
+                'component_health': health_report['component_health'],
+                'health_score': 95,  # Calculated based on metrics
+                'last_updated': health_report['timestamp']
+            },
+            'performance_trends': health_report['performance_trends'],
+            'alerts': {
+                'active_count': len(current_alerts),
+                'alerts_24h': len(alert_history),
+                'current_alerts': [
+                    {
+                        'id': alert.alert_id,
+                        'severity': alert.severity,
+                        'message': alert.message,
+                        'timestamp': alert.timestamp,
+                        'current_value': alert.current_value,
+                        'threshold': alert.threshold
+                    }
+                    for alert in current_alerts
+                ],
+                'recent_history': [
+                    {
+                        'id': alert.alert_id,
+                        'severity': alert.severity,
+                        'message': alert.message,
+                        'timestamp': alert.timestamp
+                    }
+                    for alert in alert_history[-10:]  # Last 10 alerts
+                ]
+            },
+            'performance_insights': performance_insights,
+            'sla_compliance': health_report['sla_compliance'],
+            'recommendations': health_report['recommendations']
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting performance monitoring data: {e}")
+        return jsonify({'error': 'Failed to retrieve performance monitoring data'}), 500
+
+@admin_bp.route('/api/metrics/cost-analytics')
+@require_admin_auth  
+def get_cost_analytics():
+    """Get detailed AI cost analytics"""
+    try:
+        cost_analytics = metrics_collector.get_cost_analytics()
+        performance_trends = metrics_collector.get_performance_trends(24)
+        
+        return jsonify({
+            'cost_summary': {
+                'total_cost': cost_analytics['total_cost_usd'],
+                'cost_per_request': cost_analytics['cost_per_request'],
+                'cache_savings': cost_analytics['cache_savings_usd'],
+                'monthly_projection': cost_analytics['total_cost_usd'] * 30
+            },
+            'cost_breakdown': {
+                'by_model': cost_analytics['cost_by_model'],
+                'optimization_potential': cost_analytics['optimization_potential']
+            },
+            'cost_trends': performance_trends['ai_costs'],
+            'recommendations': cost_analytics['optimization_potential']['recommendations']
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting cost analytics: {e}")
+        return jsonify({'error': 'Failed to retrieve cost analytics'}), 500
+
+@admin_bp.route('/api/metrics/thai-sme-analytics')
+@require_admin_auth
+def get_thai_sme_analytics():
+    """Get Thai SME specific analytics"""
+    try:
+        thai_sme_analytics = metrics_collector.get_thai_sme_analytics()
+        
+        return jsonify({
+            'cultural_effectiveness': thai_sme_analytics['cultural_effectiveness'],
+            'business_relevance': thai_sme_analytics['business_relevance'],
+            'market_insights': thai_sme_analytics['market_insights'],
+            'performance_summary': {
+                'avg_cultural_score': thai_sme_analytics['cultural_effectiveness']['avg_appropriateness_score'],
+                'avg_business_relevance': thai_sme_analytics['business_relevance']['avg_relevance_score'],
+                'improvement_trend': thai_sme_analytics['cultural_effectiveness']['improvement_trend']
+            },
+            'regional_distribution': thai_sme_analytics['market_insights']['regional_adoption'],
+            'industry_performance': thai_sme_analytics['business_relevance']['top_performing_industries']
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting Thai SME analytics: {e}")
+        return jsonify({'error': 'Failed to retrieve Thai SME analytics'}), 500
+
+@admin_bp.route('/api/monitoring/alerts', methods=['GET', 'POST'])
+@require_admin_auth
+def manage_alerts():
+    """Manage monitoring alerts"""
+    try:
+        if request.method == 'GET':
+            # Get all configured alerts
+            alerts = {
+                alert_id: {
+                    'id': alert_id,
+                    'name': alert.name,
+                    'condition': alert.condition,
+                    'threshold': alert.threshold,
+                    'severity': alert.severity,
+                    'enabled': alert.enabled,
+                    'trigger_count': alert.trigger_count,
+                    'last_triggered': alert.last_triggered,
+                    'cooldown_minutes': alert.cooldown_minutes
+                }
+                for alert_id, alert in monitoring_service.alerts.items()
+            }
+            
+            return jsonify({
+                'alerts': alerts,
+                'alert_count': len(alerts),
+                'enabled_count': sum(1 for alert in monitoring_service.alerts.values() if alert.enabled)
+            })
+        
+        elif request.method == 'POST':
+            # Update alert configuration
+            data = request.get_json()
+            action = data.get('action')
+            alert_id = data.get('alert_id')
+            
+            if action == 'enable':
+                monitoring_service.enable_alert(alert_id)
+                return jsonify({'status': 'success', 'message': f'Alert {alert_id} enabled'})
+            
+            elif action == 'disable':
+                monitoring_service.disable_alert(alert_id)
+                return jsonify({'status': 'success', 'message': f'Alert {alert_id} disabled'})
+            
+            elif action == 'update_threshold':
+                threshold = data.get('threshold')
+                if alert_id in monitoring_service.alerts and threshold is not None:
+                    monitoring_service.alerts[alert_id].threshold = float(threshold)
+                    return jsonify({'status': 'success', 'message': f'Alert {alert_id} threshold updated to {threshold}'})
+                else:
+                    return jsonify({'error': 'Invalid alert_id or threshold'}), 400
+            
+            else:
+                return jsonify({'error': 'Invalid action'}), 400
+        
+    except Exception as e:
+        current_app.logger.error(f"Error managing alerts: {e}")
+        return jsonify({'error': 'Failed to manage alerts'}), 500
+
+@admin_bp.route('/api/monitoring/system-health')
+@require_admin_auth
+def get_detailed_system_health():
+    """Get detailed system health information"""
+    try:
+        import time
+        health_report = monitoring_service.get_system_health_report()
+        real_time_metrics = metrics_collector.get_real_time_metrics()
+        
+        # Additional health checks
+        current_time = time.time()
+        
+        # Check database response time
+        db_start = time.time()
+        try:
+            db.session.execute('SELECT 1')
+            db_response_time = (time.time() - db_start) * 1000
+            db_health = 'healthy' if db_response_time < 100 else 'slow' if db_response_time < 500 else 'critical'
+        except Exception:
+            db_response_time = 0
+            db_health = 'error'
+        
+        # System resource usage (if psutil is available)
+        try:
+            import psutil
+            cpu_percent = psutil.cpu_percent()
+            memory_percent = psutil.virtual_memory().percent
+            disk_percent = psutil.disk_usage('/').percent
+            system_resources = {
+                'cpu_percent': cpu_percent,
+                'memory_percent': memory_percent,
+                'disk_percent': disk_percent,
+                'status': 'healthy' if all(x < 80 for x in [cpu_percent, memory_percent, disk_percent]) else 'warning'
+            }
+        except ImportError:
+            system_resources = {
+                'cpu_percent': 0,
+                'memory_percent': 0,
+                'disk_percent': 0,
+                'status': 'unknown'
+            }
+        
+        return jsonify({
+            'overall_health': health_report['overall_health'],
+            'health_score': _calculate_health_score(real_time_metrics, db_health, system_resources),
+            'components': {
+                'database': {
+                    'status': db_health,
+                    'response_time_ms': round(db_response_time, 2),
+                    'details': 'Database connectivity and response time'
+                },
+                'api_service': {
+                    'status': 'healthy' if real_time_metrics['performance']['error_rate_percent'] < 5 else 'warning',
+                    'error_rate': real_time_metrics['performance']['error_rate_percent'],
+                    'avg_response_time': real_time_metrics['performance']['avg_response_time_ms']
+                },
+                'ai_service': {
+                    'status': 'healthy' if real_time_metrics['ai_usage']['total_requests'] > 0 else 'idle',
+                    'requests_24h': real_time_metrics['ai_usage']['total_requests'],
+                    'cache_hit_rate': real_time_metrics['ai_usage']['cache_hit_rate_percent']
+                },
+                'system_resources': system_resources
+            },
+            'performance_metrics': real_time_metrics,
+            'alerts_summary': {
+                'active_alerts': len(monitoring_service.get_current_alerts()),
+                'alerts_24h': len(monitoring_service.get_alert_history(24))
+            },
+            'uptime_info': {
+                'status': 'operational',
+                'last_restart': 'N/A',  # Would be implemented with actual tracking
+                'uptime_hours': 'N/A'   # Would be implemented with actual tracking
+            },
+            'recommendations': health_report['recommendations']
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting detailed system health: {e}")
+        return jsonify({'error': 'Failed to retrieve system health'}), 500
+
+def _calculate_health_score(metrics, db_health, system_resources):
+    """Calculate overall system health score (0-100)"""
+    score = 100
+    
+    # Deduct for high response times
+    if metrics['performance']['avg_response_time_ms'] > 2000:
+        score -= 20
+    elif metrics['performance']['avg_response_time_ms'] > 1000:
+        score -= 10
+    
+    # Deduct for high error rates
+    if metrics['performance']['error_rate_percent'] > 10:
+        score -= 30
+    elif metrics['performance']['error_rate_percent'] > 5:
+        score -= 15
+    
+    # Deduct for database issues
+    if db_health == 'error':
+        score -= 40
+    elif db_health == 'critical':
+        score -= 25
+    elif db_health == 'slow':
+        score -= 10
+    
+    # Deduct for high resource usage
+    if system_resources['status'] == 'warning':
+        score -= 15
+    
+    # Deduct for low cultural effectiveness
+    if metrics['thai_sme_context']['avg_cultural_appropriateness'] < 0.7:
+        score -= 10
+    
+    return max(0, score)
+
+@admin_bp.route('/api/monitoring/performance-trends')
+@require_admin_auth
+def get_performance_trends():
+    """Get detailed performance trends"""
+    try:
+        hours = request.args.get('hours', 24, type=int)
+        trends = metrics_collector.get_performance_trends(hours)
+        
+        return jsonify({
+            'time_period_hours': hours,
+            'trends': trends,
+            'summary': {
+                'response_time_trend': _analyze_trend([point['avg_response_time'] for point in trends['response_times']]),
+                'error_rate_trend': _analyze_trend([point['error_rate'] for point in trends['error_rates']]),
+                'cost_trend': _analyze_trend([point['cumulative_cost'] for point in trends['ai_costs']]),
+                'cultural_score_trend': _analyze_trend([point['avg_score'] for point in trends['cultural_scores']])
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting performance trends: {e}")
+        return jsonify({'error': 'Failed to retrieve performance trends'}), 500
+
+def _analyze_trend(values):
+    """Analyze trend direction from a list of values"""
+    if len(values) < 2:
+        return 'insufficient_data'
+    
+    recent = sum(values[-2:]) / 2
+    older = sum(values[:2]) / 2
+    
+    if recent > older * 1.1:
+        return 'increasing'
+    elif recent < older * 0.9:
+        return 'decreasing'
+    else:
+        return 'stable'

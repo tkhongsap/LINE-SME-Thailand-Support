@@ -11,6 +11,8 @@ from services.ai_optimizer import (
     ai_optimizer, TokenUsage, ModelType,
     ContextOptimizer, ResponseCache, RequestOptimizer
 )
+from services.sme_intelligence import sme_intelligence_service
+from services.metrics_collector import metrics_collector
 
 logger = setup_logger(__name__)
 
@@ -40,14 +42,37 @@ class OpenAIService:
         self._request_times = []  # For rate limiting
     
     def generate_text_response(self, user_message, conversation_history=None, user_context=None):
-        """Generate text response using Azure OpenAI with optimization"""
+        """Generate text response using Azure OpenAI with enhanced Thai SME intelligence"""
+        start_time = time.time()
+        
         if not self.config_valid or not self.client:
             return self._get_dev_response(user_message, 'text')
         
         try:
+            # Enhanced SME intelligence analysis
+            user_id = user_context.get('user_id') if user_context else 'anonymous'
+            if Config.SME_INTELLIGENCE_ENABLED and user_id:
+                sme_analysis = sme_intelligence_service.analyze_user_message(
+                    user_message, user_id, user_context
+                )
+                # Generate enhanced system prompt with cultural intelligence
+                enhanced_system_prompt = sme_intelligence_service.generate_enhanced_system_prompt(
+                    sme_analysis, 'conversation'
+                )
+                # Use enhanced context for better responses
+                enhanced_context = {
+                    **(user_context or {}),
+                    'sme_analysis': sme_analysis,
+                    'cultural_context': sme_analysis['cultural_analysis'],
+                    'business_intelligence': sme_analysis['business_context']
+                }
+            else:
+                enhanced_context = user_context or {}
+                enhanced_system_prompt = None
+            
             # Prepare optimization context
             task_type = self._detect_task_type(user_message)
-            messages = self._build_messages(user_message, conversation_history, user_context)
+            messages = self._build_messages(user_message, conversation_history, enhanced_context, enhanced_system_prompt)
             
             # Optimize request
             optimization = self.ai_optimizer.optimize_request(
@@ -86,10 +111,71 @@ class OpenAIService:
                 user_message, response_text, user_context or {}, token_usage
             )
             
+            # Record performance metrics
+            response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+            user_id = user_context.get('user_id', 'anonymous') if user_context else 'anonymous'
+            
+            # Record user interaction metrics
+            cultural_score = 0.85  # Would be calculated from SME analysis
+            business_relevance = 0.80  # Would be calculated from SME analysis
+            if Config.SME_INTELLIGENCE_ENABLED and user_context and 'sme_analysis' in enhanced_context:
+                cultural_score = enhanced_context['sme_analysis'].get('cultural_appropriateness_score', 0.85)
+                business_relevance = enhanced_context['sme_analysis'].get('business_relevance_score', 0.80)
+            
+            metrics_collector.record_user_interaction(
+                user_id=user_id,
+                interaction_type='text_generation',
+                response_time=response_time / 1000,  # Convert back to seconds
+                success=True,
+                cultural_score=cultural_score,
+                business_relevance=business_relevance,
+                satisfaction_indicator='positive'
+            )
+            
+            # Record AI usage metrics
+            metrics_collector.record_ai_usage(
+                model_used=token_usage.model,
+                prompt_tokens=token_usage.prompt_tokens,
+                completion_tokens=token_usage.completion_tokens,
+                estimated_cost=token_usage.estimated_cost,
+                task_type=task_type,
+                user_context=enhanced_context or {},
+                cache_hit=optimization.get('cached_response') is not None
+            )
+            
+            # Record performance metric
+            metrics_collector.record_performance_metric(
+                metric_name='response_time',
+                value=response_time,
+                tags={'model': token_usage.model, 'task_type': task_type},
+                category='performance'
+            )
+            
             logger.info(f"Generated text response - Tokens: {token_usage.total_tokens}, Cost: ${token_usage.estimated_cost:.4f}")
             return response_text
             
         except Exception as e:
+            # Record error metrics
+            response_time = (time.time() - start_time) * 1000
+            user_id = user_context.get('user_id', 'anonymous') if user_context else 'anonymous'
+            
+            metrics_collector.record_user_interaction(
+                user_id=user_id,
+                interaction_type='text_generation',
+                response_time=response_time / 1000,
+                success=False,
+                cultural_score=0.0,
+                business_relevance=0.0,
+                satisfaction_indicator='error'
+            )
+            
+            metrics_collector.record_performance_metric(
+                metric_name='error_count',
+                value=1,
+                tags={'error_type': 'openai_error', 'function': 'generate_text_response'},
+                category='errors'
+            )
+            
             logger.error(f"Error generating text response: {e}")
             return self._get_error_message('openai_error')
     
@@ -283,12 +369,15 @@ Request: {request}""",
             logger.error(f"Error processing file content: {e}")
             return self._get_error_message('processing_error')
     
-    def _build_messages(self, user_message, conversation_history=None, user_context=None):
-        """Build optimized message history for conversation context"""
-        # Get optimized system prompt
-        system_prompt = self.ai_optimizer.prompt_optimizer.get_optimized_system_prompt(
-            'conversation', user_context or {}
-        )
+    def _build_messages(self, user_message, conversation_history=None, user_context=None, enhanced_system_prompt=None):
+        """Build optimized message history for conversation context with enhanced SME intelligence"""
+        # Use enhanced system prompt if available, otherwise fall back to standard
+        if enhanced_system_prompt and Config.SME_INTELLIGENCE_ENABLED:
+            system_prompt = enhanced_system_prompt
+        else:
+            system_prompt = self.ai_optimizer.prompt_optimizer.get_optimized_system_prompt(
+                'conversation', user_context or {}
+            )
         
         messages = [{"role": "system", "content": system_prompt}]
         
