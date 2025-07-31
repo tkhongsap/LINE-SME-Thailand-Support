@@ -3,6 +3,9 @@ from datetime import datetime
 from sqlalchemy import Text, DateTime, Integer, String, Boolean, Index, event
 from sqlalchemy.schema import CreateIndex
 from sqlalchemy.ext.hybrid import hybrid_property
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Lazy import to avoid circular dependency
 _encryption_service = None
@@ -114,8 +117,16 @@ class SystemLog(db.Model):
         if not self._error_details_encrypted:
             return None
         try:
-            return get_encryption_service().decrypt_text(self._error_details_encrypted, self.data_classification)
-        except Exception:
+            # Handle SQLAlchemy attribute access correctly
+            encrypted_value = self._error_details_encrypted
+            if hasattr(encrypted_value, '__class__') and 'sqlalchemy' in str(encrypted_value.__class__):
+                # This is an SQLAlchemy attribute, get the actual value
+                encrypted_value = getattr(self, '_error_details_encrypted', None)
+                if encrypted_value is None:
+                    return None
+            return get_encryption_service().decrypt_text(encrypted_value, self.data_classification)
+        except Exception as e:
+            logger.error(f"Error decrypting error_details: {e}")
             return '[DECRYPTION_ERROR]'
     
     @error_details.setter

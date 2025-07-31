@@ -36,7 +36,7 @@ webhook_bp = Blueprint('webhook', __name__)
 
 def verify_line_signature(body, signature):
     """
-    Verify LINE webhook signature for security compliance
+    Verify LINE webhook signature using proper LINE SDK method
     
     Args:
         body (str): Raw request body
@@ -45,8 +45,8 @@ def verify_line_signature(body, signature):
     Returns:
         bool: True if signature is valid, False otherwise
     """
-    if not signature or not signature.startswith('sha256='):
-        logger.warning("Invalid signature format")
+    if not signature:
+        logger.warning("Missing X-Line-Signature header")
         return False
     
     try:
@@ -55,7 +55,8 @@ def verify_line_signature(body, signature):
             logger.error("LINE_CHANNEL_SECRET not configured")
             return False
         
-        # Calculate expected signature
+        # Use LINE SDK's signature verification
+        # LINE sends signatures as base64-encoded HMAC-SHA256 without prefixes
         expected_signature = base64.b64encode(
             hmac.new(
                 channel_secret.encode('utf-8'),
@@ -64,11 +65,8 @@ def verify_line_signature(body, signature):
             ).digest()
         ).decode('utf-8')
         
-        # Extract signature from header (remove 'sha256=' prefix)
-        received_signature = signature[7:]
-        
-        # Use constant-time comparison to prevent timing attacks
-        return hmac.compare_digest(expected_signature, received_signature)
+        # LINE signature comes as base64 string directly
+        return hmac.compare_digest(expected_signature, signature)
         
     except Exception as e:
         logger.error(f"Signature verification error: {str(e)}")
@@ -472,8 +470,20 @@ def webhook():
         
         line_api_circuit_breaker.record_success()
         
-        # Parse events
-        events = request.json.get('events', [])
+        # Parse events - handle cases where JSON might be invalid
+        try:
+            if request.json is None:
+                logger.warning("Request body is not valid JSON")
+                return 'Invalid JSON', 400
+            
+            events = request.json.get('events', [])
+            if not isinstance(events, list):
+                logger.warning("Events field is not a list")
+                return 'Invalid events format', 400
+                
+        except Exception as e:
+            logger.error(f"Error parsing JSON request: {e}")
+            return 'Invalid JSON format', 400
         
         # Process events using enhanced batch processor for optimal performance
         for event in events:
