@@ -16,6 +16,18 @@ uv run python main.py
 - Python 3.11+ required
 - Dependencies defined in `pyproject.toml`
 
+### Development Commands
+```bash
+# Install dependencies
+uv sync
+
+# Run application in development
+uv run python main.py
+
+# Check Python and environment
+python --version && which uv
+```
+
 ### Database Operations
 - Database auto-initializes on startup
 - Uses SQLite by default (`instance/linebot.db`)
@@ -36,6 +48,15 @@ uv run python main.py
 2. **OpenAIService**: Azure OpenAI API calls for text generation and image analysis
 3. **FileProcessor**: Multi-format file content extraction (PDF, DOCX, XLSX, PPTX, code files)
 4. **ConversationManager**: Conversation history and context storage management
+
+#### Optimized Services (Recent Additions)
+- **ai_optimizer.py**: AI response optimization and caching
+- **file_processor_optimized.py**: Enhanced file processing with better error handling
+- **line_service_optimized.py**: Optimized LINE API integration
+- **message_queue.py**: Asynchronous message processing
+- **rate_limiter.py**: API rate limiting and throttling
+- **rich_menu_manager.py**: LINE Rich Menu management
+- **streaming_processor.py**: Real-time data processing
 
 #### Data Models (`models.py`)
 - **Conversation**: User interactions, messages, responses with language detection
@@ -94,3 +115,23 @@ The application is specifically designed for Thai Small and Medium Enterprises (
 - Multi-language error messages
 - Development-friendly responses when services unavailable
 - Graceful degradation for missing configuration
+
+## Development Notes
+
+### Testing and Quality
+- No formal testing framework currently configured
+- Manual testing through LINE Bot interface
+- Database operations tested via admin dashboard
+
+### Recent Optimizations
+The codebase includes optimization reports and enhanced services:
+- **AI_OPTIMIZATION_GUIDE.md**: Comprehensive optimization strategies
+- **LINE_BOT_OPTIMIZATION_REPORT.md**: Performance analysis and improvements
+- Dual service implementations (original and optimized versions)
+
+### File Organization
+- **utils/**: Validation and logging utilities
+- **templates/**: Jinja2 templates for admin interface
+- **static/**: Frontend assets (JavaScript, CSS)
+- **prompts/**: SME-specific prompt engineering
+- **research/**: Documentation and analysis files

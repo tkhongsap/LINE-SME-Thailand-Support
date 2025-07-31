@@ -24,9 +24,20 @@ def validate_file_upload(content, filename):
     return True, None
 
 def detect_language(text):
-    """Simple language detection based on common words/characters"""
+    """Enhanced language detection with Thai language priority for SME context"""
     if not text:
         return Config.DEFAULT_LANGUAGE
+    
+    # Thai detection (Primary language for SME context)
+    # Thai script range: U+0E00-U+0E7F
+    if any('\u0e00' <= c <= '\u0e7f' for c in text):
+        return 'th'
+    
+    # Enhanced Thai detection with common Thai words
+    thai_keywords = ['ครับ', 'ค่ะ', 'กรุณา', 'ธุรกิจ', 'การตลาด', 'เงิน', 'ขาย', 'ซื้อ', 'ร้าน', 
+                    'บริษัท', 'ลูกค้า', 'สินค้า', 'บริการ', 'แผน', 'กำไร', 'ต้นทุน', 'ราคา']
+    if any(keyword in text for keyword in thai_keywords):
+        return 'th'
     
     # Japanese detection (hiragana, katakana, kanji)
     if any('\u3040' <= c <= '\u309f' or '\u30a0' <= c <= '\u30ff' or '\u4e00' <= c <= '\u9faf' for c in text):
@@ -40,8 +51,13 @@ def detect_language(text):
     if any('\u4e00' <= c <= '\u9fff' for c in text):
         return 'zh'
     
-    # Default to English for now (could be enhanced with proper language detection library)
-    return 'en'
+    # English business keywords for international SMEs in Thailand
+    english_business_keywords = ['business', 'marketing', 'sale', 'product', 'customer', 'profit', 'revenue']
+    if any(keyword.lower() in text.lower() for keyword in english_business_keywords):
+        return 'en'
+    
+    # Default to Thai for SME context (most users expected to be Thai)
+    return Config.DEFAULT_LANGUAGE
 
 def get_file_category(filename):
     """Determine file category based on extension"""
