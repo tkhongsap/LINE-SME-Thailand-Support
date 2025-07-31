@@ -20,12 +20,30 @@ class OpenAIService:
     def __init__(self):
         self.config_valid = Config.validate_config()
         if self.config_valid:
-            self.client = AzureOpenAI(
-                api_key=Config.AZURE_OPENAI_API_KEY,
-                api_version=Config.AZURE_OPENAI_API_VERSION,
-                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT
-            )
-            self.deployment_name = Config.AZURE_OPENAI_DEPLOYMENT_NAME
+            logger.info(f"Azure OpenAI Configuration:")
+            logger.info(f"  Endpoint: {Config.AZURE_OPENAI_ENDPOINT}")
+            logger.info(f"  API Version: {Config.AZURE_OPENAI_API_VERSION}")
+            logger.info(f"  Deployment: {Config.AZURE_OPENAI_DEPLOYMENT_NAME}")
+            logger.info(f"  API Key: {'***' + Config.AZURE_OPENAI_API_KEY[-4:] if Config.AZURE_OPENAI_API_KEY else 'None'}")
+            
+            try:
+                self.client = AzureOpenAI(
+                    api_key=Config.AZURE_OPENAI_API_KEY,
+                    api_version=Config.AZURE_OPENAI_API_VERSION,
+                    azure_endpoint=Config.AZURE_OPENAI_ENDPOINT
+                )
+                self.deployment_name = Config.AZURE_OPENAI_DEPLOYMENT_NAME
+                logger.info("Azure OpenAI client initialized successfully")
+                
+                # Test connectivity
+                self._test_azure_openai_connectivity()
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize Azure OpenAI client: {e}", exc_info=True)
+                logger.warning("Falling back to development mode due to initialization failure")
+                self.config_valid = False
+                self.client = None
+                self.deployment_name = None
         else:
             logger.warning("Azure OpenAI credentials not configured. Running in development mode.")
             self.client = None
@@ -178,8 +196,11 @@ class OpenAIService:
                 category='errors'
             )
             
-            logger.error(f"Error generating text response: {e}", exc_info=True)
-            return self._get_error_message('openai_error')
+            logger.error(f"Azure OpenAI API call failed: {e}", exc_info=True)
+            logger.error(f"Failing over to development response instead of error message")
+            
+            # Instead of returning an error message, provide a helpful development response
+            return self._get_dev_response(user_message, 'text')
     
     def analyze_image(self, image_content, user_message=None, user_context=None):
         """Analyze image using GPT-4 Vision with optimization"""
@@ -501,6 +522,35 @@ Request: {request}""",
         else:
             return dev_responses.get(message_type, dev_responses['text'].format(user_message=user_message))
     
+    def _test_azure_openai_connectivity(self):
+        """Test Azure OpenAI connectivity with minimal API call"""
+        try:
+            logger.info("Testing Azure OpenAI connectivity...")
+            
+            # Make a minimal test call
+            test_messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hi"}
+            ]
+            
+            start_time = time.time()
+            response = self.client.chat.completions.create(
+                model=self.deployment_name,
+                messages=test_messages,
+                max_tokens=10,
+                temperature=0.1
+            )
+            
+            test_duration = time.time() - start_time
+            logger.info(f"✅ Azure OpenAI connectivity test successful in {test_duration:.2f}s")
+            logger.info(f"Test response: {response.choices[0].message.content[:50]}...")
+            
+        except Exception as e:
+            logger.error(f"❌ Azure OpenAI connectivity test failed: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.warning("Azure OpenAI may not be properly configured or accessible")
+            # Don't disable config here - let actual calls handle the fallback
+    
     def _detect_task_type(self, user_message: str) -> str:
         """Detect task type from user message"""
         message_lower = user_message.lower()
@@ -540,11 +590,20 @@ Request: {request}""",
     
     def _call_with_retry(self, messages: List[Dict], model: str, 
                         max_tokens: int, temperature: float):
-        """Call API with exponential backoff retry"""
+        """Call API with exponential backoff retry and comprehensive logging"""
         last_exception = None
+        
+        logger.info(f"Making Azure OpenAI API call:")
+        logger.info(f"  Model: {model}")
+        logger.info(f"  Messages: {len(messages)} messages")
+        logger.info(f"  Max tokens: {max_tokens}")
+        logger.info(f"  Temperature: {temperature}")
         
         for attempt in range(self.retry_config['max_retries']):
             try:
+                logger.info(f"API call attempt {attempt + 1}/{self.retry_config['max_retries']}")
+                start_time = time.time()
+                
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=messages,
@@ -553,11 +612,20 @@ Request: {request}""",
                     top_p=0.8,
                     frequency_penalty=0.1,
                     presence_penalty=0.1,
-                    stream=False  # Will implement streaming separately
+                    stream=False
                 )
+                
+                call_duration = time.time() - start_time
+                logger.info(f"Azure OpenAI API call successful in {call_duration:.2f}s")
+                logger.info(f"Response usage: {response.usage.total_tokens} tokens")
                 return response
                 
             except Exception as e:
+                call_duration = time.time() - start_time if 'start_time' in locals() else 0
+                logger.error(f"API call failed after {call_duration:.2f}s")
+                logger.error(f"Error type: {type(e).__name__}")
+                logger.error(f"Error message: {str(e)}")
+                
                 last_exception = e
                 if attempt < self.retry_config['max_retries'] - 1:
                     # Calculate delay with exponential backoff
@@ -570,10 +638,10 @@ Request: {request}""",
                         import random
                         delay *= (0.5 + random.random())
                     
-                    logger.warning(f"API call failed (attempt {attempt + 1}), retrying in {delay:.2f}s: {e}")
+                    logger.warning(f"Retrying in {delay:.2f}s...")
                     time.sleep(delay)
                 else:
-                    logger.error(f"API call failed after {self.retry_config['max_retries']} attempts: {e}")
+                    logger.error(f"All {self.retry_config['max_retries']} API call attempts failed")
         
         raise last_exception
     
