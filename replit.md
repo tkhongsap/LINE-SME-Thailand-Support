@@ -23,6 +23,9 @@ This is a LINE Official Account Bot integrated with Azure OpenAI that provides c
 - ✅ Fixed webhook processing logic and error handling
 - ✅ Added debug mode for testing and development
 - ✅ Verified webhook functionality with proper LINE signatures
+- ✅ **CRITICAL FIX**: Resolved Azure OpenAI deployment error - changed from non-existent 'gpt-35-turbo' to correct 'gpt-4.1-nano'
+- ✅ **CRITICAL FIX**: Added Flask application context to message queue handlers to fix database access errors
+- ✅ Bot now successfully generates AI responses to user messages
 - ⚠️ Temporarily disabled encryption to resolve startup errors (needs re-implementation)
 
 ## Deployment Requirements

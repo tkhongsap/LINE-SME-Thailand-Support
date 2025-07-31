@@ -276,43 +276,50 @@ def register_queue_handlers():
     def handle_text_processing(task):
         """Handle text message processing asynchronously"""
         try:
+            from app import app
+            
             payload = task.payload
             user_message = payload['user_message']
             user_context = payload.get('user_context', {})
             
-            # Get conversation history
-            conversation_history = conversation_manager.get_conversation_history(task.user_id)
-            
-            # Generate AI response
-            bot_response = openai_service.generate_text_response(
-                user_message, conversation_history, user_context
-            )
-            
-            # Send response
-            if task.reply_token and line_service.is_reply_token_valid(task.reply_token):
-                line_service.send_text_message(task.reply_token, bot_response)
-            else:
-                # Use push message if reply token expired
-                messages = [TextSendMessage(text=bot_response)]
-                line_service.push_message(task.user_id, messages)
-            
-            # Save conversation
-            user_profile = line_service.get_user_profile(task.user_id)
-            user_name = user_profile.get('display_name', 'Unknown') if user_profile else 'Unknown'
-            detected_language = user_context.get('language', 'th')
-            
-            conversation_manager.save_conversation(
-                task.user_id, user_name, 'text', user_message, bot_response, 
-                language=detected_language
-            )
-            
-            log_user_interaction(task.user_id, 'text', user_message, bot_response)
-            return {'status': 'success', 'response_length': len(bot_response)}
+            # Use Flask app context for database operations
+            with app.app_context():
+                # Get conversation history
+                conversation_history = conversation_manager.get_conversation_history(task.user_id)
+                
+                # Generate AI response
+                bot_response = openai_service.generate_text_response(
+                    user_message, conversation_history, user_context
+                )
+                
+                # Send response
+                if task.reply_token and line_service.is_reply_token_valid(task.reply_token):
+                    line_service.send_text_message(task.reply_token, bot_response)
+                else:
+                    # Use push message if reply token expired
+                    messages = [TextSendMessage(text=bot_response)]
+                    line_service.push_message(task.user_id, messages)
+                
+                # Save conversation
+                user_profile = line_service.get_user_profile(task.user_id)
+                user_name = user_profile.get('display_name', 'Unknown') if user_profile else 'Unknown'
+                detected_language = user_context.get('language', 'th')
+                
+                conversation_manager.save_conversation(
+                    task.user_id, user_name, 'text', user_message, bot_response, 
+                    language=detected_language
+                )
+                
+                log_user_interaction(task.user_id, 'text', user_message, bot_response)
+                return {'status': 'success', 'response_length': len(bot_response)}
             
         except Exception as e:
             logger.error(f"Text processing failed: {e}")
             # Send error message to user
-            send_error_message_async(task.user_id, task.reply_token, user_context.get('language', 'th'))
+            if 'user_context' in locals():
+                send_error_message_async(task.user_id, task.reply_token, user_context.get('language', 'th'))
+            else:
+                send_error_message_async(task.user_id, task.reply_token, 'th')
             raise
     
     def handle_file_processing(task):
