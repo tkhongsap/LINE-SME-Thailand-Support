@@ -255,7 +255,7 @@ class MessageQueue:
                 logger.error(f"Worker error: {e}")
     
     def _process_task(self, task: QueueTask):
-        """Process a single task with timeout handling"""
+        """Process a single task with timeout handling and Flask application context"""
         task.status = TaskStatus.PROCESSING
         task.started_at = time.time()
         self.processing_tasks[task.id] = task
@@ -272,12 +272,18 @@ class MessageQueue:
             if not handler:
                 raise Exception(f"No handler registered for task type: {task.task_type}")
             
-            # Execute handler with ThreadPoolExecutor timeout (compatible with worker threads)
+            # Execute handler with Flask application context and timeout
             from concurrent.futures import TimeoutError
             
             try:
+                # Create a wrapper that ensures Flask app context
+                def handler_with_context():
+                    from app import app
+                    with app.app_context():
+                        return handler(task)
+                
                 # Use executor with timeout - this works correctly in worker threads
-                future = self.executor.submit(handler, task)
+                future = self.executor.submit(handler_with_context)
                 result = future.result(timeout=MAX_TASK_TIMEOUT)
             except TimeoutError:
                 logger.error(f"Task {task.id} timed out after {MAX_TASK_TIMEOUT}s")
