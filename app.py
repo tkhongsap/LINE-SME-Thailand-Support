@@ -3,7 +3,7 @@ import logging
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import event
+from sqlalchemy import event, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Configure logging
@@ -84,7 +84,7 @@ with app.app_context():
     if is_postgres:
         try:
             # Enable database statistics collection for query optimization
-            db.session.execute("ANALYZE;")
+            db.session.execute(text("ANALYZE;"))
             db.session.commit()
             logging.info("Database statistics updated for PostgreSQL")
         except Exception as e:
@@ -94,12 +94,12 @@ with app.app_context():
     elif is_sqlite:
         try:
             # Enable WAL mode for better concurrency
-            db.session.execute("PRAGMA journal_mode=WAL;")
+            db.session.execute(text("PRAGMA journal_mode=WAL;"))
             # Optimize for performance
-            db.session.execute("PRAGMA synchronous=NORMAL;")
-            db.session.execute("PRAGMA cache_size=10000;")
-            db.session.execute("PRAGMA temp_store=memory;")
-            db.session.execute("PRAGMA mmap_size=268435456;")  # 256MB
+            db.session.execute(text("PRAGMA synchronous=NORMAL;"))
+            db.session.execute(text("PRAGMA cache_size=10000;"))
+            db.session.execute(text("PRAGMA temp_store=memory;"))
+            db.session.execute(text("PRAGMA mmap_size=268435456;"))  # 256MB
             db.session.commit()
             logging.info("SQLite performance optimizations applied")
         except Exception as e:
