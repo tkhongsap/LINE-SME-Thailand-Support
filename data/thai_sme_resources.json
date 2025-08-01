@@ -1,0 +1,286 @@
+{
+  "government_agencies": {
+    "osmep": {
+      "name": "สำนักงานส่งเสริมวิสาหกิจขนาดกลางและขนาดย่อม",
+      "english_name": "Office of Small and Medium Enterprises Promotion",
+      "website": "https://www.sme.go.th",
+      "services": [
+        "SME funding and loans",
+        "Business development programs", 
+        "Export promotion",
+        "Technology transfer",
+        "Skills development"
+      ],
+      "contact": {
+        "phone": "0-2142-2800",
+        "email": "info@sme.go.th"
+      }
+    },
+    "sme_one": {
+      "name": "SME One Portal",
+      "description": "ศูนย์รวมบริการ SME",
+      "website": "https://www.smeone.go.th",
+      "services": [
+        "Business registration",
+        "License applications",
+        "Tax registration",
+        "Social security registration",
+        "One-stop government services"
+      ]
+    },
+    "dbd": {
+      "name": "กรมพัฒนาธุรกิจการค้า",
+      "english_name": "Department of Business Development",
+      "website": "https://www.dbd.go.th",
+      "services": [
+        "Business registration",
+        "Company incorporation",
+        "Business consulting",
+        "Market information"
+      ]
+    },
+    "boi": {
+      "name": "คณะกรรมการส่งเสริมการลงทุน",
+      "english_name": "Board of Investment",
+      "website": "https://www.boi.go.th",
+      "services": [
+        "Investment promotion",
+        "Tax incentives",
+        "Industrial development",
+        "Foreign investment facilitation"
+      ]
+    }
+  },
+  "financial_institutions": {
+    "sme_bank": {
+      "name": "ธนาคารพัฒนาวิสาหกิจขนาดกลางและขนาดย่อมแห่งประเทศไทย",
+      "english_name": "Small and Medium Enterprise Development Bank of Thailand",
+      "website": "https://www.smebank.co.th",
+      "services": [
+        "SME loans",
+        "Working capital financing",
+        "Equipment financing",
+        "Export financing"
+      ],
+      "loan_products": [
+        "SME Easy Loan",
+        "Green SME Loan", 
+        "Digital SME Loan",
+        "Startup Loan"
+      ]
+    },
+    "baac": {
+      "name": "ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร",
+      "english_name": "Bank for Agriculture and Agricultural Cooperatives",
+      "website": "https://www.baac.or.th",
+      "services": [
+        "Agricultural loans",
+        "Rural development financing",
+        "Cooperative financing",
+        "Agribusiness loans"
+      ]
+    },
+    "ktb": {
+      "name": "ธนาคารกรุงไทย",
+      "english_name": "Krung Thai Bank",
+      "website": "https://www.ktb.co.th",
+      "services": [
+        "SME banking",
+        "Trade financing",
+        "Digital banking",
+        "Government project financing"
+      ]
+    }
+  },
+  "industry_associations": {
+    "fti": {
+      "name": "สภาอุตสาหกรรมแห่งประเทศไทย",
+      "english_name": "Federation of Thai Industries",
+      "website": "https://www.fti.or.th",
+      "services": [
+        "Industry information",
+        "Business networking",
+        "Policy advocacy",
+        "Training programs"
+      ]
+    },
+    "cci": {
+      "name": "หอการค้าไทย", 
+      "english_name": "Thai Chamber of Commerce",
+      "website": "https://www.thaichamber.org",
+      "services": [
+        "Business certification",
+        "Trade promotion",
+        "Business matching",
+        "Market intelligence"
+      ]
+    },
+    "tra": {
+      "name": "สมาคมค้าปลีกไทย",
+      "english_name": "Thai Retailers Association",
+      "website": "https://www.tra.or.th",
+      "services": [
+        "Retail industry development",
+        "Training and certification",
+        "Industry standards",
+        "Government liaison"
+      ]
+    }
+  },
+  "digital_platforms": {
+    "depa": {
+      "name": "สำนักงานส่งเสริมเศรษฐกิจดิจิทัล",
+      "english_name": "Digital Economy Promotion Agency",
+      "website": "https://www.depa.or.th",
+      "services": [
+        "Digital transformation support",
+        "Tech talent development",
+        "Startup ecosystem development",
+        "Digital skills training"
+      ]
+    },
+    "sipa": {
+      "name": "สำนักงานส่งเสริมอุตสาหกรรมซอฟต์แวร์แห่งชาติ",
+      "english_name": "Software Industry Promotion Agency",
+      "website": "https://www.sipa.or.th",
+      "services": [
+        "Software industry promotion",
+        "IT training programs",
+        "Technology transfer",
+        "Export promotion"
+      ]
+    }
+  },
+  "regional_resources": {
+    "bangkok": {
+      "business_centers": [
+        "Bangkok SME Development Center",
+        "Bangkok Chamber of Commerce",
+        "Bangkok Industrial Development"
+      ],
+      "key_industries": ["finance", "technology", "retail", "services"],
+      "advantages": ["large market", "infrastructure", "talent pool", "funding access"]
+    },
+    "central": {
+      "business_centers": [
+        "Central Region SME Center",
+        "Industrial Estate Authorities",
+        "Provincial Chambers of Commerce"
+      ],
+      "key_industries": ["manufacturing", "agriculture", "food processing"],
+      "advantages": ["lower costs", "supply chains", "logistics access"]
+    },
+    "northern": {
+      "business_centers": [
+        "Northern SME Development Center",
+        "Chiang Mai Chamber of Commerce",
+        "Northern Industrial Estate"
+      ],
+      "key_industries": ["tourism", "handicrafts", "agriculture", "manufacturing"],
+      "advantages": ["cultural heritage", "tourism market", "cross-border trade"]
+    },
+    "northeastern": {
+      "business_centers": [
+        "Northeastern SME Center",
+        "Regional Industrial Development",
+        "Cooperative Networks"
+      ],
+      "key_industries": ["agriculture", "textiles", "food processing"],
+      "advantages": ["agricultural base", "labor availability", "Vietnam-Laos trade"]
+    },
+    "southern": {
+      "business_centers": [
+        "Southern SME Development Center",
+        "Port Authorities",
+        "Tourism Development Offices"
+      ],
+      "key_industries": ["tourism", "fisheries", "rubber", "palm oil"],
+      "advantages": ["tourism market", "maritime trade", "natural resources"]
+    }
+  },
+  "funding_programs": {
+    "osmep_funding": {
+      "programs": [
+        {
+          "name": "SME Soft Loan",
+          "description": "Low-interest loans for SME development",
+          "max_amount": "THB 10 million",
+          "interest_rate": "2-4% per year",
+          "requirements": ["registered SME", "viable business plan", "collateral"]
+        },
+        {
+          "name": "Startup Grant",
+          "description": "Grant funding for innovative startups",
+          "max_amount": "THB 2 million",
+          "requirements": ["innovative business model", "under 3 years old", "Thai national"]
+        }
+      ]
+    },
+    "government_grants": {
+      "programs": [
+        {
+          "name": "Digital Transformation Grant",
+          "agency": "DEPA",
+          "max_amount": "THB 500,000",
+          "coverage": "50% of project cost",
+          "focus": "Digital adoption and transformation"
+        },
+        {
+          "name": "Export Development Fund",
+          "agency": "Department of International Trade Promotion",
+          "max_amount": "THB 1 million",
+          "focus": "Export market development and promotion"
+        }
+      ]
+    }
+  },
+  "training_programs": {
+    "osmep_training": [
+      "SME Management Skills",
+      "Digital Marketing for SMEs",
+      "Financial Management",
+      "Export Readiness",
+      "Innovation and Technology"
+    ],
+    "depa_training": [
+      "Digital Transformation",
+      "E-commerce Development",
+      "Data Analytics",
+      "Cybersecurity",
+      "AI and Automation"
+    ]
+  },
+  "legal_compliance": {
+    "business_registration": {
+      "steps": [
+        "Reserve company name (DBD)",
+        "Prepare incorporation documents",
+        "Register with DBD",
+        "Obtain tax ID",
+        "Register for VAT (if applicable)"
+      ],
+      "estimated_time": "7-14 days",
+      "cost_range": "THB 5,000 - 50,000"
+    },
+    "licensing_requirements": {
+      "retail": ["Business license", "Shop license", "Fire safety certificate"],
+      "food": ["Restaurant license", "Food handler certificate", "Health permit"],
+      "manufacturing": ["Factory license", "Environmental permit", "Safety certificate"],
+      "services": ["Business license", "Professional license (if applicable)"]
+    }
+  },
+  "important_dates": {
+    "tax_deadlines": {
+      "corporate_tax": "May 31 (annual)",
+      "vat_filing": "15th of following month",
+      "withholding_tax": "7th of following month",
+      "personal_income_tax": "March 31 (annual)"
+    },
+    "business_calendar": {
+      "peak_season": "November - February",
+      "moderate_season": "March - May",
+      "low_season": "June - October",
+      "major_holidays": ["Songkran (April)", "New Year", "Royal occasions"]
+    }
+  }
+}
