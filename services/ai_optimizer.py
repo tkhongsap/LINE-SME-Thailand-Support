@@ -686,18 +686,17 @@ class ModelSelector:
 
 
 class PromptOptimizer:
-    """Optimize prompts for efficiency and effectiveness"""
+    """Simplified prompt optimizer - mainly for basic text cleaning"""
     
     def __init__(self):
-        self.prompt_templates = {}
         self.performance_metrics = defaultdict(list)
     
     def optimize_prompt(self, prompt: str, context_type: str = 'general') -> str:
-        """Optimize prompt for token efficiency"""
+        """Basic prompt optimization for token efficiency"""
         # Remove redundant whitespace
         prompt = ' '.join(prompt.split())
         
-        # Compress common phrases
+        # Compress common phrases for token efficiency
         replacements = {
             'Please analyze and provide': 'Analyze:',
             'Can you help me understand': 'Explain:',
@@ -710,56 +709,6 @@ class PromptOptimizer:
             prompt = prompt.replace(long_phrase, short_phrase)
         
         return prompt
-    
-    def create_dynamic_prompt(self, base_prompt: str, variables: Dict[str, Any]) -> str:
-        """Create dynamic prompt with variable injection"""
-        # Sanitize variables
-        safe_vars = {}
-        for key, value in variables.items():
-            if isinstance(value, str):
-                safe_vars[key] = value[:500]  # Limit length
-            else:
-                safe_vars[key] = str(value)
-        
-        # Replace variables in prompt
-        try:
-            return base_prompt.format(**safe_vars)
-        except KeyError as e:
-            logger.error(f"Missing variable in prompt template: {e}")
-            return base_prompt
-    
-    def get_optimized_system_prompt(self, context_type: str, user_context: Dict) -> str:
-        """Get optimized system prompt for specific context"""
-        base_prompts = {
-            'conversation': """Thai SME advisor. Respond in user's language.
-Focus: {focus_areas}
-Context: {business_type}, {location}, {stage}
-Be concise, practical, actionable.""",
-            
-            'image_analysis': """Analyze image for Thai SME context.
-Focus: Business relevance, actionable insights.
-Language: {language}""",
-            
-            'file_analysis': """Analyze document for Thai SME.
-Type: {file_type}
-Focus: Key insights, actions needed.
-Language: {language}"""
-        }
-        
-        # Get base prompt
-        base = base_prompts.get(context_type, base_prompts['conversation'])
-        
-        # Prepare variables with defaults
-        variables = {
-            'focus_areas': user_context.get('focus_areas', 'general business advice'),
-            'business_type': user_context.get('business_type', 'SME'),
-            'location': user_context.get('location', 'Thailand'),
-            'stage': user_context.get('stage', 'operating'),
-            'language': user_context.get('language', 'th'),
-            'file_type': user_context.get('file_type', 'document')
-        }
-        
-        return self.create_dynamic_prompt(base, variables)
 
 
 class AIOptimizationManager:

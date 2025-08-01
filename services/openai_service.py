@@ -6,12 +6,11 @@ from typing import Dict, List, Optional, Iterator
 from openai import AzureOpenAI
 from config import Config
 from utils.logger import setup_logger
-from prompts.sme_prompts import SMEPrompts
+from prompts.mega_prompt import MegaPrompt
 from services.ai_optimizer import (
     ai_optimizer, TokenUsage, ModelType,
     ContextOptimizer, ResponseCache, RequestOptimizer
 )
-from services.sme_intelligence import sme_intelligence_service
 from services.metrics_collector import metrics_collector
 
 logger = setup_logger(__name__)
@@ -69,26 +68,9 @@ class OpenAIService:
             return self._get_dev_response(user_message, 'text')
         
         try:
-            # Enhanced SME intelligence analysis
-            user_id = user_context.get('user_id') if user_context else 'anonymous'
-            if Config.SME_INTELLIGENCE_ENABLED and user_id:
-                sme_analysis = sme_intelligence_service.analyze_user_message(
-                    user_message, user_id, user_context
-                )
-                # Generate enhanced system prompt with cultural intelligence
-                enhanced_system_prompt = sme_intelligence_service.generate_enhanced_system_prompt(
-                    sme_analysis, 'conversation'
-                )
-                # Use enhanced context for better responses
-                enhanced_context = {
-                    **(user_context or {}),
-                    'sme_analysis': sme_analysis,
-                    'cultural_context': sme_analysis['cultural_analysis'],
-                    'business_intelligence': sme_analysis['business_context']
-                }
-            else:
-                enhanced_context = user_context or {}
-                enhanced_system_prompt = None
+            # Use simplified context - let the AI handle cultural intelligence naturally
+            enhanced_context = user_context or {}
+            enhanced_system_prompt = None
             
             # Prepare optimization context
             task_type = self._detect_task_type(user_message)
@@ -214,10 +196,8 @@ class OpenAIService:
             # Encode image to base64
             image_base64 = base64.b64encode(optimized_image).decode('utf-8')
             
-            # Get optimized system prompt
-            system_prompt = self.ai_optimizer.prompt_optimizer.get_optimized_system_prompt(
-                'image_analysis', user_context or {}
-            )
+            # Use the single comprehensive mega prompt
+            system_prompt = MegaPrompt.get_system_prompt()
             
             messages = [
                 {
@@ -229,10 +209,7 @@ class OpenAIService:
                     "content": [
                         {
                             "type": "text",
-                            "text": self.ai_optimizer.prompt_optimizer.optimize_prompt(
-                                user_message or "Please analyze this image and describe what you see.",
-                                'image_analysis'
-                            )
+                            "text": user_message or "Please analyze this image and provide business insights relevant to Thai SME operations."
                         },
                         {
                             "type": "image_url",
@@ -315,24 +292,15 @@ class OpenAIService:
             enhanced_context = (user_context or {}).copy()
             enhanced_context['file_type'] = filename.split('.')[-1].lower()
             
-            # Get optimized system prompt
-            system_prompt = self.ai_optimizer.prompt_optimizer.get_optimized_system_prompt(
-                'file_analysis', enhanced_context
-            )
+            # Use the single comprehensive mega prompt
+            system_prompt = MegaPrompt.get_system_prompt()
             
-            # Build optimized file prompt
-            file_prompt = self.ai_optimizer.prompt_optimizer.create_dynamic_prompt(
-                """File: {filename}
+            # Build simple file prompt
+            file_prompt = f"""File: {filename}
 Content preview:
-{content}
+{optimized_content}
 
-Request: {request}""",
-                {
-                    'filename': filename,
-                    'content': optimized_content,
-                    'request': user_message or 'Analyze and summarize key points.'
-                }
-            )
+Request: {user_message or 'Analyze this file and provide actionable business insights for Thai SME operations.'}"""
             
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -393,14 +361,9 @@ Request: {request}""",
             return self._get_error_message('processing_error')
     
     def _build_messages(self, user_message, conversation_history=None, user_context=None, enhanced_system_prompt=None):
-        """Build optimized message history for conversation context with enhanced SME intelligence"""
-        # Use enhanced system prompt if available, otherwise fall back to standard
-        if enhanced_system_prompt and Config.SME_INTELLIGENCE_ENABLED:
-            system_prompt = enhanced_system_prompt
-        else:
-            system_prompt = self.ai_optimizer.prompt_optimizer.get_optimized_system_prompt(
-                'conversation', user_context or {}
-            )
+        """Build optimized message history for conversation context using simplified mega prompt"""
+        # Use the single comprehensive mega prompt
+        system_prompt = MegaPrompt.get_system_prompt()
         
         messages = [{"role": "system", "content": system_prompt}]
         
@@ -428,11 +391,8 @@ Request: {request}""",
                 if conv.bot_response:
                     messages.append({"role": "assistant", "content": conv.bot_response})
         
-        # Add current user message (optimized)
-        optimized_message = self.ai_optimizer.prompt_optimizer.optimize_prompt(
-            user_message, 'conversation'
-        )
-        messages.append({"role": "user", "content": optimized_message})
+        # Add current user message
+        messages.append({"role": "user", "content": user_message})
         
         # Compress if total context is too large
         if len(str(messages)) > 12000:  # Rough token estimate
@@ -510,12 +470,12 @@ Request: {request}""",
     
     def _get_error_message(self, error_type):
         """Get error message"""
-        error_messages = SMEPrompts.get_error_messages()
+        error_messages = MegaPrompt.get_error_messages()
         return error_messages.get(error_type, 'An error occurred.')
     
     def _get_dev_response(self, user_message, message_type='text'):
         """Generate development mode response when OpenAI is not configured"""
-        dev_responses = SMEPrompts.get_dev_responses()
+        dev_responses = MegaPrompt.get_dev_responses()
         
         if message_type == 'text':
             return dev_responses['text'].format(user_message=user_message)

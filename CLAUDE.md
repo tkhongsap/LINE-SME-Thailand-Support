@@ -10,95 +10,174 @@ uv sync
 
 # Start development server
 python main.py
-# OR
-python app.py
 
 # Start production server (Replit deployment)
 gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
 
-# Kill existing servers before starting new ones (as per Cursor rules)
+# Kill existing servers before starting new ones (IMPORTANT: Cursor rule)
 pkill -f gunicorn
+pkill -f python
+
+# Database operations
+sqlite3 instance/linebot.db  # Access SQLite database
 ```
 
 ## Required Environment Variables
 
 ```bash
+# LINE Bot Configuration (REQUIRED)
 LINE_CHANNEL_ACCESS_TOKEN=your_line_access_token
 LINE_CHANNEL_SECRET=your_line_channel_secret
+
+# Azure OpenAI Configuration (REQUIRED)
 AZURE_OPENAI_API_KEY=your_azure_openai_key
 AZURE_OPENAI_ENDPOINT=your_azure_endpoint
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4  # defaults to gpt-4
-DATABASE_URL=sqlite:///linebot.db  # defaults to SQLite, use PostgreSQL URL for production
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-nano  # Critical: Must use gpt-4.1-nano, not gpt-35-turbo
+AZURE_OPENAI_API_VERSION=2024-02-01
+
+# Optional Configuration
+DATABASE_URL=sqlite:///instance/linebot.db  # PostgreSQL URL for production
+SESSION_SECRET=your-session-secret
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=sha256_hash_of_password
 ```
 
 ## Architecture Overview
 
-This is a LINE Bot application designed for Thai SME (Small and Medium Enterprise) support, using Azure OpenAI for conversational AI capabilities.
+LINE Bot application for Thai SME support using Azure OpenAI GPT-4.1-nano for conversational AI.
 
-### Request Flow Architecture
+### Critical Architecture Decisions
 
-1. **LINE Webhook** → `/webhook` endpoint receives events
-2. **Signature Verification** → `LineService.verify_signature()` validates authenticity
-3. **Event Routing** → Different message types (text/image/file) routed to specific handlers
-4. **Context Building** → `ConversationManager` retrieves conversation history
-5. **AI Processing** → `OpenAIService` generates responses using GPT-4
-6. **Response Delivery** → `LineService.reply_message()` sends back to user
-7. **Data Persistence** → Conversation logged to SQLAlchemy models
+1. **No Encryption Layer**: Removed due to 2+ minute response time bottleneck
+2. **Async Processing**: Message queue with ThreadPoolExecutor for webhook responses
+3. **Development Mode Fallback**: Graceful degradation when Azure OpenAI unavailable
+4. **Flask App Context**: Required in all async handlers for database access
 
-### Service Layer Dependencies
+### Request Processing Flow
 
-- **LineService** (`services/line_service.py`): Depends on LINE SDK, handles all LINE API interactions
-- **OpenAIService** (`services/openai_service.py`): Depends on Azure OpenAI, manages AI model calls
-- **FileProcessor** (`services/file_processor.py`): Depends on PyPDF2, openpyxl, python-docx, python-pptx
-- **ConversationManager** (`services/conversation_manager.py`): Depends on SQLAlchemy models, manages context
+```
+LINE Webhook → Signature Verification → Event Router → Message Queue
+                                                           ↓
+Response ← LINE API ← Response Generator ← OpenAI API ← Task Handler
+   ↓
+Database (Conversation, SystemLog, WebhookEvent)
+```
 
-### Database Transaction Flow
+### Service Layer Architecture
 
-All database operations flow through SQLAlchemy session management:
-- Conversations are created/updated with each message
-- SystemLogs capture errors with stack traces
-- WebhookEvents track performance metrics
-- Sessions are properly committed/rolled back in try/finally blocks
+**Core Services** (all in `services/` directory):
+- **LineService/OptimizedLineService**: LINE API wrapper with connection pooling
+- **OpenAIService**: Azure OpenAI integration with retry logic and optimization
+- **FileProcessor/StreamingFileProcessor**: Multi-format file content extraction
+- **ConversationManager**: Context management with language detection
+- **MessageQueue**: Async task processing for webhook responses
+- **AIOptimizer**: Response caching, token optimization, model selection
+- **SMEIntelligence**: Thai business context and cultural awareness
 
-### Multi-language Architecture
+### Complex Service Dependencies
 
-The system uses a unified multilingual approach:
-- AI automatically detects user language from messages
-- Responds naturally in the detected language
-- System prompts in `prompts/sme_prompts.py` guide language behavior
-- No hardcoded language switching - AI handles it contextually
+1. **Webhook Processing** (`routes/webhook.py`):
+   - Uses WebhookProcessor for batch processing
+   - Registers queue handlers with Flask app context
+   - Implements circuit breaker pattern for LINE API
+   - Rate limiting per user and API level
 
-### Thai SME Business Logic
+2. **AI Response Generation**:
+   - SMEPrompts → Dynamic prompt injection based on business context
+   - AIOptimizer → Caches responses, selects models, compresses context
+   - MetricsCollector → Tracks performance, costs, cultural effectiveness
 
-The core business logic centers around Thai SME support with specialized knowledge:
-- Financial literacy and funding (SME loans, cash flow)
-- Digital marketing and social commerce (LINE, Facebook, TikTok)
-- E-commerce and online presence (marketplaces, payment gateways)
-- Operations management (HR, inventory, customer service)
-- Legal compliance (PDPA, tax laws, business registration)
+3. **Database Session Management**:
+   - All async handlers must use `with app.app_context()`
+   - Bulk operations use `db.session.bulk_save_objects()`
+   - Proper rollback in exception handlers
 
-### Performance Considerations
+### Thai SME Business Intelligence
 
-Recent optimization removed encryption layer that was causing 2+ minute response times:
-- Direct database writes without encryption overhead
-- 30-second timeout handling with signal.SIGALRM
-- Optimized OpenAI parameters: max_tokens=800, temperature=0.5
-- Database indexes on frequently queried columns
+**Industry Contexts** (in `SMEPrompts.INDUSTRY_CONTEXTS`):
+- retail, manufacturing, food, agriculture, services, technology
 
-## Critical Cursor Rules
+**Business Stages** (in `SMEPrompts.STAGE_CONTEXTS`):
+- startup, growth, established, pivot
+
+**Cultural Intelligence**:
+- Buddhist values integration
+- Thai business hierarchy respect
+- Regional variations (Bangkok vs provincial)
+- Formality levels (polite, formal, casual)
+
+### Performance Optimizations
+
+1. **Database Indexes** (composite indexes on):
+   - user_id + created_at
+   - language + created_at
+   - message_type + created_at
+
+2. **Response Time Targets**:
+   - Webhook acknowledgment: < 1 second
+   - Text response: < 3 seconds
+   - File processing: < 30 seconds
+
+3. **Caching Strategy**:
+   - Response cache with semantic matching
+   - User language preferences
+   - Flex message templates
+
+## Critical Cursor Coding Rules
 
 From `.cursor/rules/coding-rules.mdc`:
-- Always kill existing servers before starting new ones
-- Look for existing code to iterate on instead of creating new code
-- Avoid files over 200-300 lines - refactor at that point
-- Never mock data for dev or prod environments
-- Never overwrite .env file without confirmation
-- Focus only on code relevant to the task
+- **ALWAYS** kill existing servers before starting new ones
+- **ALWAYS** look for existing code before creating new code
+- **NEVER** mock data for dev or prod environments
+- **NEVER** overwrite .env file without confirmation
+- **AVOID** files over 200-300 lines (refactor instead)
+- **AVOID** changing existing patterns without exhausting current implementation
 
-## Error Handling Strategy
+## Known Issues and Workarounds
 
-1. All webhook handlers wrapped in try/except blocks
-2. Errors logged to SystemLog table with full stack traces
-3. User-friendly error messages returned in multiple languages
-4. Development mode provides detailed error feedback
-5. Graceful degradation when external services unavailable
+1. **Flask App Context in Async Handlers**:
+   ```python
+   from app import app
+   with app.app_context():
+       # Database operations here
+   ```
+
+2. **Azure OpenAI Model Name**:
+   - Must use `gpt-4.1-nano` (not `gpt-35-turbo`)
+   - Fallback to dev responses if API fails
+
+3. **Signal Handling for Timeouts**:
+   - Only works in main thread
+   - Use ThreadPoolExecutor for async processing
+
+4. **Replit Deployment**:
+   - Uses port 5000 internally, mapped to 80 externally
+   - Requires `--reuse-port` flag for gunicorn
+
+## Testing and Debugging
+
+```bash
+# Test webhook locally
+curl -X POST http://localhost:5000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{"events":[]}'
+
+# Check database
+sqlite3 instance/linebot.db "SELECT COUNT(*) FROM conversations;"
+
+# View logs
+sqlite3 instance/linebot.db "SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 10;"
+
+# Generate admin password hash
+python -c "import hashlib; print(hashlib.sha256('your_password'.encode()).hexdigest())"
+```
+
+## Admin Dashboard Access
+
+1. Navigate to `/admin`
+2. Login with configured credentials
+3. Monitor endpoints:
+   - `/api/stats` - Dashboard statistics
+   - `/api/conversations` - Recent conversations
+   - `/api/optimization-metrics` - AI performance
+   - `/api/async-processing-metrics` - Queue status
