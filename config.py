@@ -140,6 +140,40 @@ class Config:
     SLA_UPTIME_PERCENT = float(os.environ.get('SLA_UPTIME_PERCENT', '99.9'))
     SLA_ERROR_RATE_MAX = float(os.environ.get('SLA_ERROR_RATE_MAX', '1.0'))
     SLA_CULTURAL_SCORE_MIN = float(os.environ.get('SLA_CULTURAL_SCORE_MIN', '0.8'))
+    
+    # Fast Path Performance Optimization Configuration
+    ENABLE_FAST_PATH = os.environ.get('ENABLE_FAST_PATH', 'true').lower() == 'true'
+    FAST_PATH_MAX_LENGTH = int(os.environ.get('FAST_PATH_MAX_LENGTH', '100'))
+    FAST_PATH_KEYWORDS = [
+        # Thai greetings and common phrases
+        'สวัสดี', 'หวัดดี', 'ขอบคุณ', 'ขอโทษ', 'ไม่เป็นไร', 'ช่วยด้วย',
+        'สบายดีไหม', 'เป็นไงบ้าง', 'ได้', 'ไม่ได้', 'อย่างไร', 'ทำไม',
+        # English greetings and common phrases  
+        'hello', 'hi', 'hey', 'thanks', 'thank you', 'sorry', 'help',
+        'how are you', 'what', 'why', 'how', 'yes', 'no', 'ok', 'okay',
+        # Commands
+        '/help', '/lang', '/clear', '/status', '/menu',
+        # Simple business queries
+        'ราคา', 'price', 'cost', 'เท่าไหร่', 'how much', 'กี่บาท'
+    ]
+    
+    # Response time targets for monitoring
+    RESPONSE_TIME_TARGET_SIMPLE = float(os.environ.get('RESPONSE_TIME_TARGET_SIMPLE', '1.0'))
+    RESPONSE_TIME_TARGET_COMPLEX = float(os.environ.get('RESPONSE_TIME_TARGET_COMPLEX', '3.0'))
+    
+    # Fast path vs full pipeline decision thresholds
+    COMPLEXITY_THRESHOLD_WORDS = int(os.environ.get('COMPLEXITY_THRESHOLD_WORDS', '20'))
+    COMPLEXITY_THRESHOLD_LINES = int(os.environ.get('COMPLEXITY_THRESHOLD_LINES', '3'))
+    
+    # Fast path system prompt (lightweight)
+    FAST_PATH_SYSTEM_PROMPT = os.environ.get('FAST_PATH_SYSTEM_PROMPT', 
+        'คุณเป็นผู้ช่วย AI สำหรับ SME ไทย ตอบสั้นและเป็นประโยชน์ / You are an AI assistant for Thai SMEs. Respond concisely and helpfully.')
+    
+    # Bypass heavy services for fast path
+    FAST_PATH_SKIP_SME_INTELLIGENCE = os.environ.get('FAST_PATH_SKIP_SME_INTELLIGENCE', 'true').lower() == 'true'
+    FAST_PATH_SKIP_AI_OPTIMIZER = os.environ.get('FAST_PATH_SKIP_AI_OPTIMIZER', 'true').lower() == 'true' 
+    FAST_PATH_SKIP_METRICS_COLLECTION = os.environ.get('FAST_PATH_SKIP_METRICS_COLLECTION', 'false').lower() == 'true'
+    FAST_PATH_SKIP_CONVERSATION_HISTORY = os.environ.get('FAST_PATH_SKIP_CONVERSATION_HISTORY', 'true').lower() == 'true'
 
     @classmethod
     def validate_config(cls):
