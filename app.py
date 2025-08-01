@@ -39,7 +39,7 @@ is_sqlite = database_url.startswith('sqlite')
 if is_postgres:
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
         "pool_size": 20,  # Connection pool size
-        "pool_recycle": 1800,  # Recycle connections every 30 minutes (was 1 hour)
+        "pool_recycle": 1800,  # Recycle connections every 30 minutes
         "pool_pre_ping": True,  # Verify connections before use
         "pool_timeout": 30,  # Connection timeout
         "max_overflow": 40,  # Max overflow connections
@@ -47,10 +47,7 @@ if is_postgres:
         "connect_args": {
             "connect_timeout": 10,
             "application_name": "thai_sme_linebot",
-            "sslmode": "prefer",  # Use SSL but don't fail if unavailable
-            "tcp_keepalives_idle": "600",  # TCP keepalive settings
-            "tcp_keepalives_interval": "30",
-            "tcp_keepalives_count": "3"
+            "sslmode": "prefer"  # Use SSL but don't fail if unavailable
         }
     }
 elif is_sqlite:

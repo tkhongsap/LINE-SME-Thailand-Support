@@ -19,7 +19,7 @@ class DatabaseConnectionManager:
     def test_connection():
         """Test database connection health"""
         try:
-            db.session.execute(db.text("SELECT 1"))
+            db.session.execute(text("SELECT 1"))
             return True
         except (OperationalError, DisconnectionError) as e:
             logger.warning(f"Database connection test failed: {e}")
@@ -33,7 +33,7 @@ class DatabaseConnectionManager:
         """Attempt to recover database connection"""
         try:
             db.session.close()  # Close potentially bad connection
-            db.session.execute(db.text("SELECT 1"))  # Test new connection
+            db.session.execute(text("SELECT 1"))  # Test new connection
             return True
         except Exception as e:
             logger.error(f"Failed to recover database connection: {e}")
@@ -73,16 +73,18 @@ class ConversationManager:
                 return
             
             def save_operation():
-                conversation = Conversation(
-                    user_id=user_id,
-                    user_name=user_name,
-                    message_type=message_type,
-                    user_message=user_message,
-                    bot_response=bot_response,
-                    file_name=file_name,
-                    file_type=file_type,
-                    language=language
-                )
+                conversation = Conversation()
+                conversation.user_id = user_id
+                conversation.user_name = user_name
+                conversation.message_type = message_type
+                conversation.user_message = user_message
+                conversation.bot_response = bot_response
+                conversation.file_name = file_name
+                conversation.file_type = file_type
+                conversation.language = language
+                conversation.user_id_hash = f"hash_{hash(user_id) % 100000}"
+                conversation.data_classification = 'confidential'
+                conversation.consent_version = '1.0'
                 
                 db.session.add(conversation)
                 db.session.commit()
@@ -480,16 +482,18 @@ class ConversationManager:
             # Prepare conversation objects
             conversations = []
             for data in conversations_data:
-                conv = Conversation(
-                    user_id=data.get('user_id'),
-                    user_name=data.get('user_name'),
-                    message_type=data.get('message_type', 'text'),
-                    user_message=data.get('user_message'),
-                    bot_response=data.get('bot_response'),
-                    file_name=data.get('file_name'),
-                    file_type=data.get('file_type'),
-                    language=data.get('language', Config.DEFAULT_LANGUAGE)
-                )
+                conv = Conversation()
+                conv.user_id = data.get('user_id')
+                conv.user_name = data.get('user_name')
+                conv.message_type = data.get('message_type', 'text')
+                conv.user_message = data.get('user_message')
+                conv.bot_response = data.get('bot_response')
+                conv.file_name = data.get('file_name')
+                conv.file_type = data.get('file_type')
+                conv.language = data.get('language', Config.DEFAULT_LANGUAGE)
+                conv.user_id_hash = f"hash_{hash(data.get('user_id', '')) % 100000}"
+                conv.data_classification = 'confidential'
+                conv.consent_version = '1.0'
                 conversations.append(conv)
             
             # Bulk insert with optimized settings
@@ -512,9 +516,9 @@ class ConversationManager:
             # Analyze tables for PostgreSQL
             if 'postgresql' in db.engine.url.drivername:
                 try:
-                    db.session.execute("ANALYZE conversations;")
-                    db.session.execute("ANALYZE system_logs;")
-                    db.session.execute("ANALYZE webhook_events;")
+                    db.session.execute(text("ANALYZE conversations;"))
+                    db.session.execute(text("ANALYZE system_logs;"))
+                    db.session.execute(text("ANALYZE webhook_events;"))
                     db.session.commit()
                     optimizations_applied.append("PostgreSQL ANALYZE completed")
                 except Exception as e:
@@ -523,8 +527,8 @@ class ConversationManager:
             # Vacuum for SQLite
             elif 'sqlite' in db.engine.url.drivername:
                 try:
-                    db.session.execute("VACUUM;")
-                    db.session.execute("PRAGMA optimize;")
+                    db.session.execute(text("VACUUM;"))
+                    db.session.execute(text("PRAGMA optimize;"))
                     db.session.commit()
                     optimizations_applied.append("SQLite VACUUM and OPTIMIZE completed")
                 except Exception as e:
@@ -550,7 +554,7 @@ class ConversationManager:
             # Table sizes
             metrics['table_sizes'] = {}
             for table_name in ['conversations', 'system_logs', 'webhook_events']:
-                count = db.session.execute(f"SELECT COUNT(*) FROM {table_name}").scalar()
+                count = db.session.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
                 metrics['table_sizes'][table_name] = count
             
             # Recent activity (last 24 hours)
@@ -566,7 +570,7 @@ class ConversationManager:
             if 'postgresql' in db.engine.url.drivername:
                 try:
                     result = db.session.execute(
-                        "SELECT pg_size_pretty(pg_database_size(current_database()))"
+                        text("SELECT pg_size_pretty(pg_database_size(current_database()))")
                     ).scalar()
                     metrics['database_size'] = result
                 except Exception:
