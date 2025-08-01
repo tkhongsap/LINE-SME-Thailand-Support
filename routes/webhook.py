@@ -255,6 +255,10 @@ class WebhookProcessor:
             return process_event_async(event_data)
         
         with self.buffer_lock:
+            # Ensure user_id exists in event_buffer (safety check for defaultdict)
+            if user_id not in self.event_buffer:
+                self.event_buffer[user_id] = []
+            
             self.event_buffer[user_id].append({
                 'event': event_data,
                 'timestamp': time.time()
@@ -582,15 +586,21 @@ def webhook():
         
         # Process events using enhanced batch processor for optimal performance
         for event in events:
-            # Use batch processor for better throughput
-            webhook_processor.add_event(event)
-            
-            # Also process through original async pipeline for immediate responses
-            # This dual approach ensures both speed and reliability
-            if event.get('type') in ['follow', 'unfollow'] or \
-               (event.get('type') == 'message' and event.get('message', {}).get('text', '').startswith('/')):
-                # Process commands and follow events immediately
-                process_event_async(event)
+            try:
+                # Use batch processor for better throughput
+                webhook_processor.add_event(event)
+                
+                # Also process through original async pipeline for immediate responses
+                # This dual approach ensures both speed and reliability
+                if event.get('type') in ['follow', 'unfollow'] or \
+                   (event.get('type') == 'message' and event.get('message', {}).get('text', '').startswith('/')):
+                    # Process commands and follow events immediately
+                    process_event_async(event)
+            except Exception as e:
+                logger.error(f"Error processing event: {e}")
+                logger.error(f"Event details: {event}")
+                # Continue processing other events even if one fails
+                continue
         
         # Return immediately (LINE expects response within 30 seconds)
         return 'OK'
