@@ -1,13 +1,15 @@
 import logging
 from datetime import datetime
-from models import SystemLog
-from app import db
 
 class DatabaseHandler(logging.Handler):
     """Custom logging handler to store logs in database"""
     
     def emit(self, record):
         try:
+            # Import models inside the method to avoid circular imports
+            from models import SystemLog
+            from app import db
+            
             log_entry = SystemLog(
                 level=record.levelname,
                 message=record.getMessage(),

@@ -7,7 +7,11 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(mkdir:*)",
       "Bash(git add:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebFetch(domain:developers.line.biz)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill:*)",
+      "Bash(git branch:*)"
     ],
     "deny": []
   }
