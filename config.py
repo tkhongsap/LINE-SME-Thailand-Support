@@ -145,16 +145,24 @@ class Config:
     ENABLE_FAST_PATH = os.environ.get('ENABLE_FAST_PATH', 'true').lower() == 'true'
     FAST_PATH_MAX_LENGTH = int(os.environ.get('FAST_PATH_MAX_LENGTH', '100'))
     FAST_PATH_KEYWORDS = [
-        # Thai greetings and common phrases
+        # Thai greetings and common phrases - expanded
         'สวัสดี', 'หวัดดี', 'ขอบคุณ', 'ขอโทษ', 'ไม่เป็นไร', 'ช่วยด้วย',
-        'สบายดีไหม', 'เป็นไงบ้าง', 'ได้', 'ไม่ได้', 'อย่างไร', 'ทำไม',
-        # English greetings and common phrases  
-        'hello', 'hi', 'hey', 'thanks', 'thank you', 'sorry', 'help',
-        'how are you', 'what', 'why', 'how', 'yes', 'no', 'ok', 'okay',
-        # Commands
+        'สบายดีไหม', 'เป็นไงบ้าง', 'ได้', 'ไม่ได้', 'อย่างไร', 'ทำไม', 'คือ', 'เอ่อ',
+        'แล้ว', 'นะ', 'ครับ', 'ค่ะ', 'จ้า', '555', '5555', 'ฮา', 'ฮี', 'โอเค',
+        'ใช่', 'ไม่ใช่', 'มาก', 'น้อย', 'ดี', 'ไม่ดี', 'เก่ง', 'สนใจ', 'จริง',
+        # English greetings and common phrases - expanded
+        'hello', 'hi', 'hey', 'thanks', 'thank you', 'sorry', 'help', 'please',
+        'how are you', 'what', 'why', 'how', 'yes', 'no', 'ok', 'okay', 'sure',
+        'nice', 'good', 'bad', 'great', 'awesome', 'cool', 'wow', 'really',
+        'lol', 'haha', 'hehe', 'yep', 'nope', 'maybe', 'probably', 'interesting',
+        # Commands - keep all existing
         '/help', '/lang', '/clear', '/status', '/menu',
-        # Simple business queries
-        'ราคา', 'price', 'cost', 'เท่าไหร่', 'how much', 'กี่บาท'
+        # Simple business queries - expanded
+        'ราคา', 'price', 'cost', 'เท่าไหร่', 'how much', 'กี่บาท', 'บาท', 'เงิน',
+        'ขาย', 'ซื้อ', 'sell', 'buy', 'shop', 'store', 'product', 'service',
+        # Simple questions (very common patterns)
+        'what is', 'how to', 'can you', 'do you', 'is it', 'are you',
+        'คืออะไร', 'ทำยังไง', 'เป็นไง', 'มีไหม', 'ได้ไหม'
     ]
     
     # Response time targets for monitoring

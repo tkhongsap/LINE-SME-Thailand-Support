@@ -296,6 +296,15 @@ def register_queue_handlers():
             user_message = payload['user_message']
             user_context = payload.get('user_context', {})
             
+            # Detect and update language within Flask context
+            try:
+                detected_language = conversation_manager.detect_and_update_language(task.user_id, user_message)
+                user_context['language'] = detected_language
+                logger.info(f"Task {task.id} - Language detected: {detected_language}")
+            except Exception as e:
+                logger.warning(f"Task {task.id} - Language detection failed: {e}")
+                user_context['language'] = user_context.get('language', Config.DEFAULT_LANGUAGE)
+            
             logger.info(f"Task {task.id} - Processing message: '{user_message[:100]}...'")
             logger.info(f"Task {task.id} - User context: {user_context}")
             
@@ -751,9 +760,9 @@ def handle_text_message_async(message, reply_token, user_id, user_context):
             handle_command_optimized(user_message, reply_token, user_id, user_context)
             return
         
-        # Auto-detect language if needed
-        detected_language = conversation_manager.detect_and_update_language(user_id, user_message)
-        user_context['language'] = detected_language
+        # Set default language for context - actual detection happens in Flask context later
+        user_context['language'] = user_context.get('language', Config.DEFAULT_LANGUAGE)
+        user_context['user_message'] = user_message  # Pass message for language detection later
         
         # FAST PATH OPTIMIZATION: Check if message should use fast path
         if Config.ENABLE_FAST_PATH and fast_openai_service.is_available():
@@ -776,6 +785,14 @@ def handle_text_message_async(message, reply_token, user_id, user_context):
             
             # FAST PATH: Direct processing for simple queries
             if routing_decision['route_to_fast_path']:
+                # Detect language in Flask context for fast path
+                try:
+                    detected_language = conversation_manager.detect_and_update_language(user_id, user_message)
+                    user_context['language'] = detected_language
+                except Exception as e:
+                    logger.warning(f"Language detection failed in fast path: {e}")
+                    user_context['language'] = Config.DEFAULT_LANGUAGE
+                    
                 return handle_fast_path_text_message(
                     user_message, reply_token, user_id, user_context, routing_decision
                 )

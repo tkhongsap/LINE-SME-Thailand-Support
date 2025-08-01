@@ -108,17 +108,28 @@ class ComplexityDetector:
             analysis['reason'] = 'simple_greeting_or_query'
             return True, analysis
         
-        # Default decision based on message characteristics
-        if (analysis['word_count'] <= 5 and 
+        # More aggressive fast path routing for better performance
+        # Expand criteria for very short messages
+        if (analysis['word_count'] <= 8 and  # Increased from 5
             analysis['line_count'] == 1 and 
-            len(message) <= 50):
+            len(message) <= 80):  # Increased from 50
             analysis['decision'] = 'fast_path'
-            analysis['reason'] = 'very_short_simple_message'
+            analysis['reason'] = 'short_simple_message'
             return True, analysis
         
-        # Default to full pipeline for safety
+        # Route medium-length simple messages to fast path  
+        if (analysis['word_count'] <= 15 and  # New criteria
+            analysis['line_count'] <= 2 and 
+            len(message) <= 120 and
+            not any(complex_word in message_lower for complex_word in 
+                   ['detailed', 'comprehensive', 'analysis', 'strategy', 'วิเคราะห์', 'ยุทธศาสตร์'])):
+            analysis['decision'] = 'fast_path'
+            analysis['reason'] = 'medium_simple_message'
+            return True, analysis
+        
+        # Default to full pipeline only for clearly complex queries
         analysis['decision'] = 'full_pipeline'
-        analysis['reason'] = 'default_safety'
+        analysis['reason'] = 'potentially_complex'
         return False, analysis
     
     def analyze_user_context(self, user_id: str, message_history: List = None) -> Dict:

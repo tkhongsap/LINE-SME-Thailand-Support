@@ -38,20 +38,19 @@ app.config["SQLALCHEMY_RECORD_QUERIES"] = False  # Disable query recording in pr
 is_postgres = database_url.startswith('postgresql')
 is_sqlite = database_url.startswith('sqlite')
 
-# Database-specific optimizations with enhanced PostgreSQL settings
+# Database-specific optimizations - fixed configuration
 if is_postgres:
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_size": 10,  # Connection pool size (reduced for stability)
-        "pool_recycle": 300,  # Recycle connections every 5 minutes (shorter for SSL stability)
+        "pool_size": 10,  # Connection pool size
+        "pool_recycle": 300,  # Recycle connections every 5 minutes
         "pool_pre_ping": True,  # Verify connections before use
-        "pool_timeout": 20,  # Connection timeout (reduced)
-        "max_overflow": 20,  # Max overflow connections (reduced)
+        "pool_timeout": 20,  # Connection timeout
+        "max_overflow": 20,  # Max overflow connections
         "pool_reset_on_return": "commit",  # Reset connection state on return
         "connect_args": {
-            "connect_timeout": 30,  # Increased connection timeout
+            "connect_timeout": 30,
             "application_name": "thai_sme_linebot",
-            "sslmode": "prefer",  # Use SSL but don't fail if unavailable
-            "options": "-c statement_timeout=30s -c idle_in_transaction_session_timeout=30s"
+            "sslmode": "prefer"  # Use SSL but don't fail if unavailable
         }
     }
 elif is_sqlite:
