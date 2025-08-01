@@ -12,6 +12,7 @@ import uuid
 
 from config import Config
 from utils.logger import setup_logger
+from utils.flask_context import with_app_context
 
 logger = setup_logger(__name__)
 

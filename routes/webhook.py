@@ -1387,8 +1387,17 @@ def send_error_message(reply_token, language='th'):
 
 @webhook_bp.route('/health', methods=['GET'])
 def health_check():
-    """Enhanced health check endpoint with system metrics"""
+    """Enhanced health check endpoint with system metrics and database connectivity"""
     try:
+        # Check database connectivity first
+        database_status = {'status': 'healthy', 'response_time_ms': 0}
+        try:
+            from utils.database import get_database_status
+            database_status = get_database_status()
+        except Exception as db_error:
+            logger.warning(f"Database health check failed: {db_error}")
+            database_status = {'status': 'unhealthy', 'error': str(db_error)}
+        
         # Check queue health
         queue_stats = message_queue.get_queue_stats()
         
@@ -1402,10 +1411,17 @@ def health_check():
         fast_path_available = Config.ENABLE_FAST_PATH and fast_openai_service.is_available()
         fast_path_stats = fast_openai_service.get_cache_stats() if fast_path_available else {}
         
+        # Determine overall health status
+        is_healthy = (
+            circuit_status['state'] == 'closed' and 
+            database_status['status'] == 'healthy'
+        )
+        
         health_data = {
-            'status': 'healthy' if circuit_status['state'] == 'closed' else 'degraded',
+            'status': 'healthy' if is_healthy else 'degraded',
             'timestamp': datetime.utcnow().isoformat(),
             'service': 'LINE Bot Webhook - Ultra-Optimized with Fast Path',
+            'database': database_status,
             'metrics': {
                 'queue': {
                     'pending_tasks': queue_stats['pending_tasks'],
@@ -1434,6 +1450,7 @@ def health_check():
             },
             'optimizations': [
                 'Connection pooling enabled',
+                'Database retry logic with exponential backoff',
                 'Message batching active', 
                 'Async processing queue',
                 'Rate limiting enforced',
@@ -1444,10 +1461,11 @@ def health_check():
             ]
         }
         
-        status_code = 200 if health_data['status'] == 'healthy' else 503
+        status_code = 200 if is_healthy else 503
         return jsonify(health_data), status_code
         
     except Exception as e:
+        logger.error(f"Health check failed: {e}")
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),

@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from sqlalchemy import desc, func, and_, or_
+from sqlalchemy import desc, func, and_, or_, text
 from sqlalchemy.orm import Query, load_only
 from sqlalchemy.exc import OperationalError, DisconnectionError, StatementError
 from app import db
