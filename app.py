@@ -19,6 +19,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# Admin configuration
+app.config["ADMIN_USERNAME"] = os.environ.get("ADMIN_USERNAME", "admin")
+app.config["ADMIN_PASSWORD_HASH"] = os.environ.get("ADMIN_PASSWORD_HASH", "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9")  # Default: admin123
+
 # Configure the database with performance optimizations
 database_url = os.environ.get("DATABASE_URL", "sqlite:///instance/linebot.db")
 
@@ -71,7 +75,14 @@ from routes.webhook import webhook_bp
 from routes.admin import admin_bp
 
 app.register_blueprint(webhook_bp)
-app.register_blueprint(admin_bp)
+app.register_blueprint(admin_bp, url_prefix='/admin')
+
+# Root route to redirect to admin
+@app.route('/')
+def index():
+    """Root route redirects to admin login"""
+    from flask import redirect, url_for
+    return redirect(url_for('admin.login'))
 
 with app.app_context():
     # Import models to ensure tables are created
