@@ -412,8 +412,16 @@ Request: {request}""",
             
             # Check if we need to compress older context
             if len(conversation_history) > history_limit:
+                # Convert Conversation objects to expected dictionary format
+                formatted_history = []
+                for conv in conversation_history:
+                    if conv.user_message:
+                        formatted_history.append({"role": "user", "content": conv.user_message})
+                    if conv.bot_response:
+                        formatted_history.append({"role": "assistant", "content": conv.bot_response})
+                
                 summary = self.ai_optimizer.context_optimizer.summarize_old_context(
-                    conversation_history, keep_recent=history_limit
+                    formatted_history, keep_recent=history_limit
                 )
                 if summary:
                     messages.append({
