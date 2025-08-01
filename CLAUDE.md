@@ -2,136 +2,103 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Common Development Commands
+## Development Commands
 
-### Running the Application
 ```bash
-python main.py
-# or via uv
-uv run python main.py
-```
-
-### Development Environment
-- Uses `uv` for dependency management
-- Python 3.11+ required
-- Dependencies defined in `pyproject.toml`
-
-### Development Commands
-```bash
-# Install dependencies
+# Install dependencies using uv package manager
 uv sync
 
-# Run application in development
-uv run python main.py
+# Start development server
+python main.py
+# OR
+python app.py
 
-# Check Python and environment
-python --version && which uv
+# Start production server (Replit deployment)
+gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
+
+# Kill existing servers before starting new ones (as per Cursor rules)
+pkill -f gunicorn
 ```
 
-### Database Operations
-- Database auto-initializes on startup
-- Uses SQLite by default (`instance/linebot.db`)
-- PostgreSQL support via `DATABASE_URL` environment variable
+## Required Environment Variables
 
-## Code Architecture
+```bash
+LINE_CHANNEL_ACCESS_TOKEN=your_line_access_token
+LINE_CHANNEL_SECRET=your_line_channel_secret
+AZURE_OPENAI_API_KEY=your_azure_openai_key
+AZURE_OPENAI_ENDPOINT=your_azure_endpoint
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4  # defaults to gpt-4
+DATABASE_URL=sqlite:///linebot.db  # defaults to SQLite, use PostgreSQL URL for production
+```
 
-### Application Structure
-- **Entry Point**: `main.py` imports Flask app from `app.py`
-- **Blueprint Architecture**: Modular routing with webhooks and admin separated
-- **Database**: SQLAlchemy with declarative base, auto-creates tables on startup
-- **Services Layer**: Business logic separated into service classes
+## Architecture Overview
 
-### Key Components
+This is a LINE Bot application designed for Thai SME (Small and Medium Enterprise) support, using Azure OpenAI for conversational AI capabilities.
 
-#### Core Services (`services/`)
-1. **LineService**: LINE Messaging API integration, signature verification, message sending
-2. **OpenAIService**: Azure OpenAI API calls for text generation and image analysis
-3. **FileProcessor**: Multi-format file content extraction (PDF, DOCX, XLSX, PPTX, code files)
-4. **ConversationManager**: Conversation history and context storage management
+### Request Flow Architecture
 
-#### Optimized Services (Recent Additions)
-- **ai_optimizer.py**: AI response optimization and caching
-- **file_processor_optimized.py**: Enhanced file processing with better error handling
-- **line_service_optimized.py**: Optimized LINE API integration
-- **message_queue.py**: Asynchronous message processing
-- **rate_limiter.py**: API rate limiting and throttling
-- **rich_menu_manager.py**: LINE Rich Menu management
-- **streaming_processor.py**: Real-time data processing
+1. **LINE Webhook** → `/webhook` endpoint receives events
+2. **Signature Verification** → `LineService.verify_signature()` validates authenticity
+3. **Event Routing** → Different message types (text/image/file) routed to specific handlers
+4. **Context Building** → `ConversationManager` retrieves conversation history
+5. **AI Processing** → `OpenAIService` generates responses using GPT-4
+6. **Response Delivery** → `LineService.reply_message()` sends back to user
+7. **Data Persistence** → Conversation logged to SQLAlchemy models
 
-#### Data Models (`models.py`)
-- **Conversation**: User interactions, messages, responses with language detection
-- **SystemLog**: Application logs and error tracking
-- **WebhookEvent**: LINE webhook event monitoring and processing metrics
+### Service Layer Dependencies
 
-#### Routing (`routes/`)
-- **webhook.py**: Processes LINE webhook events (messages, follows, postbacks)
-- **admin.py**: Dashboard API endpoints for statistics and monitoring
+- **LineService** (`services/line_service.py`): Depends on LINE SDK, handles all LINE API interactions
+- **OpenAIService** (`services/openai_service.py`): Depends on Azure OpenAI, manages AI model calls
+- **FileProcessor** (`services/file_processor.py`): Depends on PyPDF2, openpyxl, python-docx, python-pptx
+- **ConversationManager** (`services/conversation_manager.py`): Depends on SQLAlchemy models, manages context
 
-### Multi-Language Support
-- **Primary Language**: Thai (th) - optimized for Thai SME support
-- **Supported Languages**: English, Japanese, Korean, Chinese, Spanish, French, German, Italian, Portuguese, Russian
-- **Auto Language Detection**: Based on Unicode character ranges
-- **SME Prompts System**: Thai-first business advisory prompts in `prompts/sme_prompts.py`
+### Database Transaction Flow
 
-### File Processing Capabilities
-- **Documents**: PDF, DOCX, TXT, MD
-- **Spreadsheets**: XLSX, XLS, CSV  
-- **Presentations**: PPTX, PPT
-- **Code Files**: Python, JavaScript, HTML, CSS, Java, C++, C, PHP, Ruby, Go, Rust
-- **Images**: JPG, PNG, GIF, WebP (with GPT-4 Vision analysis)
-- **Size Limit**: 20MB per file
+All database operations flow through SQLAlchemy session management:
+- Conversations are created/updated with each message
+- SystemLogs capture errors with stack traces
+- WebhookEvents track performance metrics
+- Sessions are properly committed/rolled back in try/finally blocks
 
-### Configuration Management
-- Environment-based configuration via `config.py`
-- Development mode with graceful fallbacks when Azure OpenAI not configured
-- Required environment variables for production:
-  - `LINE_CHANNEL_ACCESS_TOKEN`
-  - `LINE_CHANNEL_SECRET` 
-  - `AZURE_OPENAI_API_KEY`
-  - `AZURE_OPENAI_ENDPOINT`
+### Multi-language Architecture
 
-### Data Flow Pattern
-1. LINE webhook events → signature verification → event processing
-2. File uploads → content extraction → AI processing
-3. Context management → conversation history → response generation
-4. Response delivery → data logging → metrics storage
+The system uses a unified multilingual approach:
+- AI automatically detects user language from messages
+- Responds naturally in the detected language
+- System prompts in `prompts/sme_prompts.py` guide language behavior
+- No hardcoded language switching - AI handles it contextually
 
-### Thai SME Business Context
-The application is specifically designed for Thai Small and Medium Enterprises (SMEs):
-- References Thai government resources (OSMEP, SME One)
-- Understands Thai regulations (PDPA, tax laws, licensing)
-- Provides culturally appropriate business advice
-- Uses colloquial, friendly Thai language
-- Focuses on practical, actionable guidance
+### Thai SME Business Logic
 
-### Admin Interface
-- Web-based dashboard for monitoring bot performance
-- Real-time statistics and conversation tracking  
-- Bootstrap-based responsive UI with dark theme
-- Charts and analytics for usage patterns
+The core business logic centers around Thai SME support with specialized knowledge:
+- Financial literacy and funding (SME loans, cash flow)
+- Digital marketing and social commerce (LINE, Facebook, TikTok)
+- E-commerce and online presence (marketplaces, payment gateways)
+- Operations management (HR, inventory, customer service)
+- Legal compliance (PDPA, tax laws, business registration)
 
-### Error Handling
-- Comprehensive logging with database storage
-- Multi-language error messages
-- Development-friendly responses when services unavailable
-- Graceful degradation for missing configuration
+### Performance Considerations
 
-## Development Notes
+Recent optimization removed encryption layer that was causing 2+ minute response times:
+- Direct database writes without encryption overhead
+- 30-second timeout handling with signal.SIGALRM
+- Optimized OpenAI parameters: max_tokens=800, temperature=0.5
+- Database indexes on frequently queried columns
 
-### Testing and Quality
-- No formal testing framework currently configured
-- Manual testing through LINE Bot interface
-- Database operations tested via admin dashboard
+## Critical Cursor Rules
 
-### Recent Optimizations
-The codebase includes optimization reports and enhanced services:
-- **AI_OPTIMIZATION_GUIDE.md**: Comprehensive optimization strategies
-- **LINE_BOT_OPTIMIZATION_REPORT.md**: Performance analysis and improvements
-- Dual service implementations (original and optimized versions)
+From `.cursor/rules/coding-rules.mdc`:
+- Always kill existing servers before starting new ones
+- Look for existing code to iterate on instead of creating new code
+- Avoid files over 200-300 lines - refactor at that point
+- Never mock data for dev or prod environments
+- Never overwrite .env file without confirmation
+- Focus only on code relevant to the task
 
-### File Organization
-- **utils/**: Validation and logging utilities
-- **templates/**: Jinja2 templates for admin interface
-- **static/**: Frontend assets (JavaScript, CSS)
-- **prompts/**: SME-specific prompt engineering
-- **research/**: Documentation and analysis files
+## Error Handling Strategy
+
+1. All webhook handlers wrapped in try/except blocks
+2. Errors logged to SystemLog table with full stack traces
+3. User-friendly error messages returned in multiple languages
+4. Development mode provides detailed error feedback
+5. Graceful degradation when external services unavailable
