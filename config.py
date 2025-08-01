@@ -180,7 +180,7 @@ class Config:
     # Bypass heavy services for fast path
     FAST_PATH_SKIP_SME_INTELLIGENCE = os.environ.get('FAST_PATH_SKIP_SME_INTELLIGENCE', 'true').lower() == 'true'
     FAST_PATH_SKIP_AI_OPTIMIZER = os.environ.get('FAST_PATH_SKIP_AI_OPTIMIZER', 'true').lower() == 'true' 
-    FAST_PATH_SKIP_METRICS_COLLECTION = os.environ.get('FAST_PATH_SKIP_METRICS_COLLECTION', 'false').lower() == 'true'
+    FAST_PATH_SKIP_METRICS_COLLECTION = os.environ.get('FAST_PATH_SKIP_METRICS_COLLECTION', 'true').lower() == 'true'
     FAST_PATH_SKIP_CONVERSATION_HISTORY = os.environ.get('FAST_PATH_SKIP_CONVERSATION_HISTORY', 'true').lower() == 'true'
 
     @classmethod

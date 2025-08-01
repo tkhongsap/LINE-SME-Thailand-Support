@@ -37,3 +37,8 @@ externalPort = 80
 localPort = 19047
 externalPort = 3000
 exposeLocalhost = true
+
+[[ports]]
+localPort = 50771
+externalPort = 3001
+exposeLocalhost = true
