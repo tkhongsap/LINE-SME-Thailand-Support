@@ -137,7 +137,7 @@ RESPONSE STYLE:
             return []
         
         # Implement sliding window - keep last 6 exchanges (12 messages) to stay within token limits
-        max_history_items = 12
+        max_history_items = 100
         recent_history = conversation_history[-max_history_items:] if len(conversation_history) > max_history_items else conversation_history
         
         formatted_messages = []
