@@ -10,6 +10,8 @@ uv sync
 
 # Start development server
 python main.py
+# OR
+python app.py
 
 # Start production server (Replit deployment)
 gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
@@ -25,39 +27,63 @@ LINE_CHANNEL_ACCESS_TOKEN=your_line_access_token
 LINE_CHANNEL_SECRET=your_line_channel_secret
 AZURE_OPENAI_API_KEY=your_azure_openai_key
 AZURE_OPENAI_ENDPOINT=your_azure_endpoint
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-nano  # defaults to gpt-4.1-nano
-DATABASE_URL=postgresql://...  # PostgreSQL connection string
-SESSION_SECRET=your_session_secret
-ADMIN_USERNAME=admin_username
-ADMIN_PASSWORD_HASH=hashed_password
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4  # defaults to gpt-4
+DATABASE_URL=sqlite:///linebot.db  # defaults to SQLite, use PostgreSQL URL for production
 ```
 
 ## Architecture Overview
 
-This is a radically simplified LINE Bot application (v2.0) optimized for Replit deployment. The system was transformed from a complex 50+ file architecture to just 5 core files.
+This is a LINE Bot application designed for Thai SME (Small and Medium Enterprise) support, using Azure OpenAI for conversational AI capabilities.
 
-### Core Files (Total: ~519 lines)
+### Request Flow Architecture
 
-1. **main.py** - Gunicorn entry point that imports app_simplified
-2. **app_simplified.py** - Flask application with webhook handler and all routes
-3. **openai_service.py** - Direct Azure OpenAI integration without abstraction layers
-4. **line_service.py** - Minimal LINE API wrapper for signature verification and messaging
-5. **database.py** - Async PostgreSQL logging with connection pooling
+1. **LINE Webhook** → `/webhook` endpoint receives events
+2. **Signature Verification** → `LineService.verify_signature()` validates authenticity
+3. **Event Routing** → Different message types (text/image/file) routed to specific handlers
+4. **Context Building** → `ConversationManager` retrieves conversation history
+5. **AI Processing** → `OpenAIService` generates responses using GPT-4
+6. **Response Delivery** → `LineService.reply_message()` sends back to user
+7. **Data Persistence** → Conversation logged to SQLAlchemy models
 
-### Request Flow
+### Service Layer Dependencies
 
-```
-LINE Webhook → Signature Verification → OpenAI Processing → Response → Async Log
-    (10ms)            (5ms)               (800-1200ms)      (100ms)   (non-blocking)
-```
+- **LineService** (`services/line_service.py`): Depends on LINE SDK, handles all LINE API interactions
+- **OpenAIService** (`services/openai_service.py`): Depends on Azure OpenAI, manages AI model calls
+- **FileProcessor** (`services/file_processor.py`): Depends on PyPDF2, openpyxl, python-docx, python-pptx
+- **ConversationManager** (`services/conversation_manager.py`): Depends on SQLAlchemy models, manages context
 
-### Key Design Decisions
+### Database Transaction Flow
 
-- **Single processing path** - No complex fast path/full pipeline routing
-- **Direct API calls** - Removed all service abstraction layers
-- **Async database logging** - Uses threading to prevent blocking main flow
-- **Connection pooling** - 1-5 connections optimized for Replit constraints
-- **5-second timeout** - OpenAI calls timeout to maintain responsiveness
+All database operations flow through SQLAlchemy session management:
+- Conversations are created/updated with each message
+- SystemLogs capture errors with stack traces
+- WebhookEvents track performance metrics
+- Sessions are properly committed/rolled back in try/finally blocks
+
+### Multi-language Architecture
+
+The system uses a unified multilingual approach:
+- AI automatically detects user language from messages
+- Responds naturally in the detected language
+- System prompts in `prompts/sme_prompts.py` guide language behavior
+- No hardcoded language switching - AI handles it contextually
+
+### Thai SME Business Logic
+
+The core business logic centers around Thai SME support with specialized knowledge:
+- Financial literacy and funding (SME loans, cash flow)
+- Digital marketing and social commerce (LINE, Facebook, TikTok)
+- E-commerce and online presence (marketplaces, payment gateways)
+- Operations management (HR, inventory, customer service)
+- Legal compliance (PDPA, tax laws, business registration)
+
+### Performance Considerations
+
+Recent optimization removed encryption layer that was causing 2+ minute response times:
+- Direct database writes without encryption overhead
+- 30-second timeout handling with signal.SIGALRM
+- Optimized OpenAI parameters: max_tokens=800, temperature=0.5
+- Database indexes on frequently queried columns
 
 ## Critical Cursor Rules
 
@@ -69,36 +95,16 @@ From `.cursor/rules/coding-rules.mdc`:
 - Never overwrite .env file without confirmation
 - Focus only on code relevant to the task
 
-## Performance Targets
-
-- Health endpoint: <500ms
-- Root endpoint: <100ms
-- Message response: <1.5s (p95)
-- Memory usage: <512MB (Replit constraint)
-- Database connections: 1-5 max
-
 ## Error Handling Strategy
 
-- All webhook errors return 200 OK to prevent LINE retries
-- User-friendly error messages in Thai/English based on detected language
-- Comprehensive logging without exposing sensitive data
-- Graceful degradation when services unavailable
+1. All webhook handlers wrapped in try/except blocks
+2. Errors logged to SystemLog table with full stack traces
+3. User-friendly error messages returned in multiple languages
+4. Development mode provides detailed error feedback
+5. Graceful degradation when external services unavailable
 
-## Business Context
-
-Thai SME (Small and Medium Enterprise) support bot with specialized knowledge in:
-- Financial literacy and funding options
-- Digital marketing and social commerce
-- E-commerce and online presence
-- Operations management
-- Legal compliance (PDPA, tax laws)
-
-The bot automatically detects language from user messages and responds in the same language (Thai/English).
-
-## Important Notes
-
-- The `/backup/` directory contains the old complex architecture (50+ files) - DO NOT USE
-- Database schema is auto-created on first run
-- All configuration via environment variables only
-- Deployment verified through DEPLOYMENT_CHECKLIST.md
-- Performance validated to meet all targets in August 2025 deployment
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
