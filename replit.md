@@ -3,9 +3,16 @@
 ## Project Overview
 A sophisticated LINE Official Account webhook bot that leverages Azure OpenAI's GPT-4.1-nano for advanced multilingual AI conversations, with a focus on intelligent error handling and user-friendly system interactions.
 
-## Recent Changes (August 1, 2025)
+## Recent Changes (August 2, 2025)
 
-### ✅ Deployment Fixes Applied
+### ✅ Radical Simplification PRD Created
+1. **Replit-Optimized Architecture Planning**
+   - Created `REPLIT_SIMPLIFIED_LINEBOT_PRD.md` for system simplification
+   - Designed 5-file architecture specifically for Replit deployment
+   - Defined migration strategy from 50+ files to 5 core files
+   - Established <1.5s response time targets for Replit environment
+
+### ✅ Previous Deployment Fixes Applied (August 1, 2025)
 1. **Enhanced PostgreSQL Configuration**
    - Optimized connection pool settings (10 connections, 5-minute recycle)
    - Added SSL configuration with proper fallback handling
@@ -106,6 +113,8 @@ A sophisticated LINE Official Account webhook bot that leverages Azure OpenAI's 
 - Documentation: Detailed architectural decisions
 
 ## Architecture Decisions Log
+- **August 2, 2025**: Created radical simplification PRD for Replit-optimized deployment
+- **August 2, 2025**: Designed 5-file architecture targeting <1.5s response times
 - **August 1, 2025**: Enhanced database configuration for deployment stability
 - **August 1, 2025**: Implemented comprehensive retry logic with exponential backoff
 - **August 1, 2025**: Added Flask context management for async operations
