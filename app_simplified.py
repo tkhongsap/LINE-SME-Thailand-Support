@@ -124,7 +124,7 @@ def root():
         "service": "Thai SME LINE Bot - Simplified",
         "status": "running",
         "deployment": "replit",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "endpoints": {
             "webhook": "/webhook",
             "health": "/health"
