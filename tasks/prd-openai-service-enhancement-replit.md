@@ -30,12 +30,12 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 ## Functional Requirements
 
 ### 1. Language Detection and Response System
-1.1. The system must detect the language of each incoming user message using lightweight character-based detection (Unicode ranges for Thai, English, Japanese, Korean)
-1.2. The system must support detection for: Thai, English, Japanese, and Korean
-1.3. The system must respond in the same language as the user's latest message
-1.4. The system must handle mixed-language inputs gracefully, defaulting to the dominant language
-1.5. When language detection fails, the system must default to Thai (primary audience)
-1.6. The detection logic must execute in <50ms to maintain performance targets
+1.1. The system must detect and respond in the same language as the user's latest input through enhanced system prompt instructions
+1.2. The system must support: Thai, English, Japanese, and Korean
+1.3. The system must instruct OpenAI to automatically match the user's language without separate detection logic
+1.4. The system must handle mixed-language inputs gracefully through natural language understanding
+1.5. When language is ambiguous, the system must default to Thai (primary audience) via system prompt
+1.6. The language detection and response must be handled within the OpenAI API call (no additional processing time)
 
 ### 2. Alex Hormozi-Inspired Persona Integration
 2.1. The system must incorporate the following communication characteristics:
@@ -72,7 +72,7 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 - **Workflow Command**: `gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app`
 - **Dependencies**: 
   - Existing: flask, gunicorn, openai, psutil, requests
-  - New: langdetect (for language detection)
+  - No new dependencies required
 - **Environment Variables**: 
   - Existing: LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET, AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, SESSION_SECRET
   - No new environment variables required
@@ -90,8 +90,8 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 - **Response Time Targets**: 
   - Health endpoint: <100ms (current: ~43ms)
   - Webhook processing: <3s total (including AI generation)
-  - Language detection: <50ms
   - Memory operations: <10ms
+  - System prompt processing: Included in OpenAI API call time
 - **Resource Constraints**: 
   - Memory usage: <400MB total
   - CPU: Optimized for single-core Replit environment
@@ -124,23 +124,23 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 4. **Multi-user conversation threads** - Each user has independent sessions
 5. **Translation services** - The bot responds in detected language, not translating between languages
 6. **Database storage for conversations** - Maintaining current database-free architecture
-7. **External language detection APIs** - Using local detection only
+7. **External language detection APIs** - Using OpenAI's natural language understanding for detection
 
 ## Replit Development Considerations
 
 - **File Structure**: 
-  - Enhanced `openai_service.py` for persona and memory management
-  - New `language_detector.py` for language detection logic
+  - Enhanced `openai_service.py` for persona, memory management, and language-aware system prompts
   - Updated `app_simplified.py` for session management
+  - No additional files required
 - **Replit Features Used**: 
   - Secrets management for API keys
   - Always-on deployment for webhook availability
   - Console logging for debugging and monitoring
 - **Testing Strategy**: 
-  - Unit tests for language detection accuracy
-  - Manual testing through LINE Bot interface
+  - Manual testing through LINE Bot interface with multilingual inputs
   - Performance monitoring through console logs
-- **Debugging**: Enhanced console logging with conversation context and language detection results
+  - Conversation memory validation across extended sessions
+- **Debugging**: Enhanced console logging with conversation context and language response consistency
 
 ## Success Metrics
 
@@ -155,18 +155,17 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 
 ## Deployment Checklist
 
-- [ ] Install langdetect dependency via package manager
-- [ ] Update OpenAI service with persona integration
-- [ ] Implement language detection module
-- [ ] Add conversation memory management
+- [ ] Update OpenAI service with enhanced system prompt for language detection and persona integration
+- [ ] Add conversation memory management to OpenAI service
 - [ ] Update webhook handler for session management
-- [ ] Test language detection with Thai, English, Japanese, Korean inputs
-- [ ] Verify conversation memory functionality
-- [ ] Test Alex Hormozi persona responses
+- [ ] Test language response consistency with Thai, English, Japanese, Korean inputs
+- [ ] Verify conversation memory functionality across multi-turn conversations
+- [ ] Test Alex Hormozi persona responses with Thai cultural adaptation
 - [ ] Validate performance targets (<3s response time)
 - [ ] Monitor memory usage during extended conversations
 - [ ] Test session cleanup after inactivity
 - [ ] Verify graceful error handling for all new features
+- [ ] Test system prompt effectiveness for automatic language matching
 - [ ] Ready for Replit deployment
 
 ## Open Questions
@@ -178,6 +177,40 @@ This PRD outlines enhancements to the OpenAI service within the existing LINE ch
 5. Should the system proactively suggest switching to user's preferred language?
 6. How should the system handle Replit restarts that clear in-memory sessions?
 
+## Technical Implementation Strategy
+
+### System Prompt-Based Language Detection
+The language detection will be implemented through enhanced system prompt instructions that:
+
+1. **Automatic Language Matching**: Instruct OpenAI to "Always respond in the same language as the user's most recent message"
+2. **Language Support**: Explicitly mention support for Thai, English, Japanese, and Korean
+3. **Default Behavior**: Default to Thai when language is ambiguous
+4. **Natural Understanding**: Leverage OpenAI's natural language processing to handle mixed-language inputs
+
+### Enhanced System Prompt Structure
+```
+You are an AI business advisor for Thai SMEs with Alex Hormozi-inspired characteristics.
+
+LANGUAGE RULE: Always respond in the exact same language as the user's most recent message. 
+- If user writes in Thai (ไทย), respond in Thai
+- If user writes in English, respond in English  
+- If user writes in Japanese (日本語), respond in Japanese
+- If user writes in Korean (한국어), respond in Korean
+- If language is unclear, default to Thai
+
+PERSONA: [Alex Hormozi characteristics with Thai cultural adaptation]
+
+CONVERSATION CONTEXT: [Conversation memory will be inserted here]
+
+CURRENT USER MESSAGE: [User's latest input]
+```
+
+### Conversation Memory Integration
+- Store conversation history as formatted string in memory
+- Include relevant context in each API call within token limits
+- Implement sliding window for long conversations
+- Session-based storage with automatic cleanup
+
 ## Implementation Notes
 
-This enhancement maintains the current high-performance, database-free architecture while adding sophisticated conversation capabilities. The implementation prioritizes simplicity and leverages Replit's built-in features for a seamless deployment experience.
+This enhancement maintains the current high-performance, database-free architecture while adding sophisticated conversation capabilities. The system prompt approach eliminates the need for separate language detection logic, reducing complexity and maintaining ultra-fast response times. The implementation prioritizes simplicity and leverages both OpenAI's natural language understanding and Replit's built-in features for a seamless deployment experience.
