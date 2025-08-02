@@ -2,7 +2,7 @@ modules = ["nodejs-20", "python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["openssl", "postgresql"]
+packages = ["openssl", "postgresql", "gh"]
 
 [deployment]
 deploymentTarget = "autoscale"
