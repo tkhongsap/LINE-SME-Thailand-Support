@@ -177,6 +177,7 @@ LINE Webhook → Signature Verification → OpenAI → Response → Console Log
 - Documentation: Detailed architectural decisions
 
 ## Architecture Decisions Log
+- **August 2, 2025**: Created Replit-specific PRD template (`tasks/01-create-prd-replit.md`) with platform constraints, deployment considerations, and tech stack guidance
 - **August 2, 2025**: Created agentic task management system for autonomous Replit development
 - **August 2, 2025**: Created radical simplification PRD for Replit-optimized deployment
 - **August 2, 2025**: Designed 5-file architecture targeting <1.5s response times
