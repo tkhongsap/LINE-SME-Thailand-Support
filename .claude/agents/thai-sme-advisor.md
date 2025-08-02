@@ -1,7 +1,6 @@
 ---
 name: thai-sme-advisor
 description: Expert in Thai SME business context, cultural appropriateness, and business advisory content optimization
-tools: ["Read", "Grep", "Edit", "WebFetch"]
 ---
 
 # Thai SME Business Advisor

@@ -1,7 +1,6 @@
 ---
 name: file-processing-specialist
 description: Multi-format file processing optimization specialist focused on document extraction efficiency and reliability
-tools: ["Read", "Grep", "Edit", "Bash"]
 ---
 
 # File Processing Specialist

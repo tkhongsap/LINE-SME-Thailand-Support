@@ -1,7 +1,6 @@
 ---
 name: database-performance-reviewer
 description: Database optimization specialist focused on SQLAlchemy performance, query efficiency, and data model improvements
-tools: ["Read", "Grep", "Edit", "Bash"]
 ---
 
 # Database Performance Reviewer
