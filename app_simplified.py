@@ -6,7 +6,7 @@ import psutil
 from flask import Flask, request, abort, jsonify
 from openai_service import generate_response as openai_generate
 from line_service import verify_signature, send_message
-from database import log_conversation, get_database_service
+
 
 # Configure logging for Replit console visibility
 logging.basicConfig(level=logging.INFO)
@@ -72,8 +72,8 @@ def webhook():
                     
                     logging.info(f"⚡ Performance: {performance_status} Total={total_response_time_ms}ms | OpenAI={openai_latency_ms}ms | Memory={memory_usage_mb:.1f}MB {memory_status}")
                     
-                    # Log conversation async (non-blocking)
-                    log_conversation(user_id, user_message, response_text, total_response_time_ms)
+                    # Log conversation to console (Replit-optimized)
+                    logging.info(f"💬 {user_id[:10]}... | {total_response_time_ms}ms | {memory_usage_mb:.1f}MB | {user_message[:30]}... → {response_text[:30]}...")
         
         return 'OK', 200
         
@@ -90,28 +90,22 @@ def health():
         health_data = {
             "status": "healthy",
             "deployment": "replit-simplified",
-            "version": "2.0.0",
-            "response_time_target": "1.0s",
+            "version": "2.1.0",
+            "response_time_target": "500ms",
             "timestamp": int(__import__('time').time())
         }
         
         # Test environment variables
         required_env_vars = ['LINE_CHANNEL_ACCESS_TOKEN', 'LINE_CHANNEL_SECRET', 
-                           'AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_ENDPOINT', 'DATABASE_URL']
+                           'AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_ENDPOINT', 'SESSION_SECRET']
         missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
         
         if missing_vars:
             health_data["status"] = "degraded"
             health_data["missing_env_vars"] = missing_vars
         
-        # Test database connectivity
-        try:
-            db_service = get_database_service()
-            db_healthy = db_service.health_check()
-            health_data["database"] = "healthy" if db_healthy else "unhealthy"
-        except Exception as e:
-            health_data["database"] = "unhealthy"
-            health_data["database_error"] = str(e)
+        # Console-only logging - no database connectivity required
+        health_data["storage"] = "console-only"
         
         return jsonify(health_data), 200
         
