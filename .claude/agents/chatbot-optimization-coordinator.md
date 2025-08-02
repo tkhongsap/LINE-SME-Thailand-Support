@@ -1,7 +1,6 @@
 ---
 name: chatbot-optimization-coordinator
 description: Master coordinator for chatbot optimization - delegates tasks to specialized agents and synthesizes their findings
-tools: ["Task", "Read", "Write", "Edit", "TodoWrite", "Grep", "Bash"]
 ---
 
 # Chatbot Optimization Coordinator

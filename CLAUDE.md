@@ -37,20 +37,27 @@ This is a LINE Bot application designed for Thai SME (Small and Medium Enterpris
 
 ### Request Flow Architecture
 
-1. **LINE Webhook** → `/webhook` endpoint receives events
+1. **LINE Webhook** → `/webhook` endpoint receives events (**SYNCHRONOUS - NEEDS ASYNC**)
 2. **Signature Verification** → `LineService.verify_signature()` validates authenticity
 3. **Event Routing** → Different message types (text/image/file) routed to specific handlers
 4. **Context Building** → `ConversationManager` retrieves conversation history
-5. **AI Processing** → `OpenAIService` generates responses using GPT-4
+5. **AI Processing** → `OpenAIService` generates responses using GPT-4 (**MONOLITHIC IN MAIN.PY**)
 6. **Response Delivery** → `LineService.reply_message()` sends back to user
-7. **Data Persistence** → Conversation logged to SQLAlchemy models
+7. **Data Persistence** → Conversation logged to SQLAlchemy models (**NO ENCRYPTION**)
 
 ### Service Layer Dependencies
 
 - **LineService** (`services/line_service.py`): Depends on LINE SDK, handles all LINE API interactions
-- **OpenAIService** (`services/openai_service.py`): Depends on Azure OpenAI, manages AI model calls
-- **FileProcessor** (`services/file_processor.py`): Depends on PyPDF2, openpyxl, python-docx, python-pptx
+- **OpenAIService** (`services/openai_service.py`): Depends on Azure OpenAI, manages AI model calls (**NEEDS EXTRACTION FROM MAIN.PY**)
+- **FileProcessor** (`services/file_processor.py`): Depends on PyPDF2, openpyxl, python-docx, python-pptx (**NOT IMPLEMENTED**)
 - **ConversationManager** (`services/conversation_manager.py`): Depends on SQLAlchemy models, manages context
+
+### Critical Architecture Issues
+
+1. **Monolithic main.py**: AI logic, webhook handlers, and business logic all mixed together
+2. **Synchronous Processing**: Blocking webhook handlers cause timeouts and poor UX
+3. **Missing Implementations**: File processing and Thai SME prompts not completed
+4. **Security Vulnerabilities**: Database encryption removed, no PDPA compliance
 
 ### Database Transaction Flow
 
@@ -77,13 +84,46 @@ The core business logic centers around Thai SME support with specialized knowled
 - Operations management (HR, inventory, customer service)
 - Legal compliance (PDPA, tax laws, business registration)
 
-### Performance Considerations
+**CURRENT IMPLEMENTATION GAPS:**
+- `prompts/sme_prompts.py` needs comprehensive Thai business scenarios
+- File processing implementation missing (`services/file_processor.py` incomplete)
+- No business document analysis capabilities
+- Generic AI responses lack Thai cultural context
+- Missing SME-specific validation and business logic
 
-Recent optimization removed encryption layer that was causing 2+ minute response times:
-- Direct database writes without encryption overhead
+### Performance & Security Trade-offs
+
+**CRITICAL:** Recent encryption removal improved performance but created security vulnerabilities:
+- Direct database writes without encryption (TEMPORARY SOLUTION)
 - 30-second timeout handling with signal.SIGALRM
 - Optimized OpenAI parameters: max_tokens=800, temperature=0.5
 - Database indexes on frequently queried columns
+
+**URGENT OPTIMIZATION NEEDS:**
+- Async webhook processing to prevent blocking
+- Field-level encryption for PDPA compliance
+- Background task queue for heavy operations
+- Service layer extraction from main.py monolith
+
+## Critical Implementation Priorities
+
+### Phase 1: Security & Performance (IMMEDIATE)
+1. **Async Webhook Processing** - Convert main.py handlers to prevent blocking
+2. **Restore Data Encryption** - Field-level encryption for PDPA compliance
+3. **Extract AI Service** - Move OpenAI logic from main.py to dedicated service
+4. **Background Tasks** - Queue system for file processing and heavy operations
+
+### Phase 2: Thai SME Features (HIGH PRIORITY)
+5. **Complete Thai Prompts** - Expand prompts/sme_prompts.py with business scenarios
+6. **File Processing** - Implement services/file_processor.py for documents
+7. **Cultural Validation** - Add Thai business context and etiquette checks
+8. **SME Business Logic** - Industry-specific handlers and responses
+
+### Phase 3: Infrastructure (MEDIUM PRIORITY)
+9. **Database Optimization** - Query optimization and proper indexing
+10. **Connection Pooling** - Reduce database connection overhead
+11. **Performance Monitoring** - Real-time metrics and alerting
+12. **PDPA Compliance** - Complete audit trail and user consent
 
 ## Critical Cursor Rules
 
@@ -95,6 +135,44 @@ From `.cursor/rules/coding-rules.mdc`:
 - Never overwrite .env file without confirmation
 - Focus only on code relevant to the task
 
+## Security & PDPA Compliance Requirements
+
+### Critical Security Gaps
+- **Data Encryption**: Removed for performance, MUST be restored with async implementation
+- **Webhook Security**: Signature verification exists but needs rate limiting
+- **Admin Access**: No authentication for admin endpoints
+- **User Consent**: Missing PDPA consent collection and management
+- **Data Retention**: No automated data deletion policy
+
+### Thai PDPA Compliance Checklist
+- [ ] User consent collection before data processing
+- [ ] Privacy policy in Thai language
+- [ ] Data retention and deletion mechanisms
+- [ ] User rights implementation (access, rectification, erasure)
+- [ ] Cross-border data transfer safeguards for Azure OpenAI
+
+## File Processing Architecture
+
+### Current Status
+- **Dependencies Configured**: PyPDF2, openpyxl, python-docx, python-pptx in pyproject.toml
+- **Implementation Missing**: services/file_processor.py needs complete implementation
+- **Integration Gap**: No webhook handlers for file message types
+
+### Required File Support
+```python
+# Thai SME document types to support:
+Documents: PDF (reports, invoices), DOCX (contracts, proposals)
+Spreadsheets: XLSX (financial statements, inventory)
+Presentations: PPTX (business plans, pitches)
+Images: JPG/PNG (receipts, documents) via GPT-4 Vision
+```
+
+### File Processing Pipeline Design
+1. **Validation**: File size, type, malware scanning
+2. **Extraction**: Format-specific content extraction with Thai text support
+3. **AI Analysis**: Context-aware document understanding
+4. **Response**: Structured insights for SME business decisions
+
 ## Error Handling Strategy
 
 1. All webhook handlers wrapped in try/except blocks
@@ -102,6 +180,45 @@ From `.cursor/rules/coding-rules.mdc`:
 3. User-friendly error messages returned in multiple languages
 4. Development mode provides detailed error feedback
 5. Graceful degradation when external services unavailable
+
+## LINE Bot Optimization Guidelines
+
+### Webhook Response Time Requirements
+- LINE platform requires response within 30 seconds
+- Current synchronous processing often exceeds this limit
+- Implement async processing with immediate acknowledgment
+- Use background tasks for AI processing and file handling
+
+### Message Type Processing Times
+| Type | Current | Target | Solution |
+|------|---------|--------|----------|
+| Text | 3-8s | <2s | Async + caching |
+| Image | 5-12s | <5s | Background OCR |
+| File | 10-30s | <10s | Chunked processing |
+| Postback | 1-3s | <1s | Direct routing |
+
+## AI Service Optimization
+
+### Azure OpenAI Configuration
+```python
+# Current (in main.py - needs extraction):
+model="gpt-4"
+max_tokens=800  # Static, should be dynamic
+temperature=0.5  # Should vary by request type
+```
+
+### Recommended Optimizations
+1. **Dynamic Token Allocation**: Adjust based on request complexity
+2. **Response Caching**: Cache common Thai SME queries
+3. **Prompt Templates**: Structured prompts for different business scenarios
+4. **Context Compression**: Summarize old conversations to save tokens
+5. **Streaming Responses**: Implement for better perceived performance
+
+### Thai Language Considerations
+- Preserve UTF-8 encoding throughout pipeline
+- Implement Thai text normalization before AI processing
+- Add cultural context injection for business appropriateness
+- Consider regional dialects and business terminology
 
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.

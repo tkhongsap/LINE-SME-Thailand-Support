@@ -1,7 +1,6 @@
 ---
 name: security-compliance-auditor
 description: Security and compliance specialist focused on PDPA compliance, data protection, and authentication security
-tools: ["Read", "Grep", "WebFetch"]
 ---
 
 # Security & Compliance Auditor

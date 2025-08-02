@@ -1,7 +1,6 @@
 ---
 name: ai-service-optimizer
 description: Azure OpenAI integration specialist focused on prompt engineering, context management, and AI response optimization
-tools: ["Read", "Grep", "Edit", "WebFetch"]
 ---
 
 # AI Service Optimizer

@@ -1,7 +1,6 @@
 ---
 name: line-bot-optimizer
 description: Specialized agent for LINE Bot API optimization, webhook handling, and response time improvements
-tools: ["Read", "Grep", "Edit", "Bash", "WebFetch"]
 ---
 
 # LINE Bot Optimizer
