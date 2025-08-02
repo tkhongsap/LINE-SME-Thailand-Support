@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import time
+import psutil
 from flask import Flask, request, abort, jsonify
 from openai_service import generate_response as openai_generate
 from line_service import verify_signature, send_message
@@ -46,19 +47,33 @@ def webhook():
                 user_id = event.get('source', {}).get('userId')
                 
                 if reply_token and user_message and user_id:
-                    start_time = time.time()
-                    logging.info(f"Received message from {user_id}: {user_message}")
+                    total_start_time = time.time()
+                    logging.info(f"📨 Received message from {user_id}: {user_message}")
                     
-                    # Generate response using OpenAI
-                    response_text = openai_generate(user_message, 'th')
-                    logging.info(f"Generated response: {response_text[:50]}...")
+                    # Measure OpenAI API latency separately
+                    openai_start_time = time.time()
+                    response_text = openai_generate(user_message)
+                    openai_latency_ms = int((time.time() - openai_start_time) * 1000)
+                    
+                    logging.info(f"🤖 Generated response: {response_text[:50]}...")
                     
                     # Send response via LINE
                     send_message(reply_token, response_text)
                     
+                    # Calculate total performance metrics
+                    total_response_time_ms = int((time.time() - total_start_time) * 1000)
+                    
+                    # Memory usage monitoring for Replit constraints
+                    memory_usage_mb = psutil.Process().memory_info().rss / 1024 / 1024
+                    
+                    # Performance monitoring log with validation
+                    performance_status = "🟢 OPTIMAL" if total_response_time_ms < 1000 else "🟡 SLOW"
+                    memory_status = "🟢 OK" if memory_usage_mb < 400 else "🟡 HIGH"
+                    
+                    logging.info(f"⚡ Performance: {performance_status} Total={total_response_time_ms}ms | OpenAI={openai_latency_ms}ms | Memory={memory_usage_mb:.1f}MB {memory_status}")
+                    
                     # Log conversation async (non-blocking)
-                    response_time_ms = int((time.time() - start_time) * 1000)
-                    log_conversation(user_id, user_message, response_text, response_time_ms)
+                    log_conversation(user_id, user_message, response_text, total_response_time_ms)
         
         return 'OK', 200
         
@@ -76,7 +91,7 @@ def health():
             "status": "healthy",
             "deployment": "replit-simplified",
             "version": "2.0.0",
-            "response_time_target": "1.5s",
+            "response_time_target": "1.0s",
             "timestamp": int(__import__('time').time())
         }
         

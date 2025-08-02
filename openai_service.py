@@ -28,35 +28,24 @@ class OpenAIService:
         
         logging.info(f"Azure OpenAI client initialized - Endpoint: {self.endpoint}")
     
-    def generate_response(self, user_message: str, language: str = 'th') -> str:
+    def generate_response(self, user_message: str) -> str:
         """
-        Generate response using direct Azure OpenAI call
+        Generate response using direct Azure OpenAI call with universal language support
         
         Args:
             user_message: User's input message
-            language: Response language ('th' for Thai, 'en' for English)
         
         Returns:
             Generated response text
         """
-        # Define fallback messages before try block
-        if language == 'th':
-            fallback_message = "ขออภัย เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง"
-        else:
-            fallback_message = "Sorry, an error occurred. Please try again."
+        # Universal fallback message for any errors
+        fallback_message = "ขออภัย เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง / Sorry, an error occurred. Please try again."
             
         try:
-            # Simple but effective prompt template for Thai SME
-            if language == 'th':
-                system_prompt = """คุณเป็นผู้ช่วย AI สำหรับ SME ไทย ที่เป็นมิตรและให้ความช่วยเหลือ
-ตอบคำถามเกี่ยวกับธุรกิจ การเงิน การตลาด และเทคโนโลยี
-ใช้ภาษาไทยที่เข้าใจง่าย เป็นมิตร และให้คำแนะนำที่เป็นประโยชน์"""
-            else:
-                system_prompt = """You are a helpful AI assistant for Thai SMEs (Small and Medium Enterprises).
-Provide practical advice on business, finance, marketing, and technology.
-Be friendly, clear, and give actionable recommendations."""
+            # Optimized universal system prompt for faster processing
+            system_prompt = """AI assistant for Thai SMEs. Respond in user's language (Thai/English). Give practical business, finance, marketing, and tech advice. Be friendly and clear."""
             
-            # Make direct API call with timeout
+            # Make direct API call with extended timeout for natural completion
             response = self.client.chat.completions.create(
                 model=self.deployment,
                 messages=[
@@ -65,7 +54,7 @@ Be friendly, clear, and give actionable recommendations."""
                 ],
                 max_tokens=500,
                 temperature=0.7,
-                timeout=5.0  # 5 second timeout for Replit optimization
+                timeout=30.0  # Extended timeout for complex queries
             )
             
             result = response.choices[0].message.content
@@ -83,7 +72,7 @@ Be friendly, clear, and give actionable recommendations."""
     def test_connection(self) -> bool:
         """Test Azure OpenAI connectivity for health checks"""
         try:
-            test_response = self.generate_response("Hello", "en")
+            test_response = self.generate_response("Hello")
             return len(test_response) > 0
         except:
             return False
@@ -98,7 +87,7 @@ def get_openai_service() -> OpenAIService:
         _openai_service = OpenAIService()
     return _openai_service
 
-def generate_response(user_message: str, language: str = 'th') -> str:
-    """Simplified function for direct usage"""
+def generate_response(user_message: str) -> str:
+    """Simplified function for direct usage with universal language support"""
     service = get_openai_service()
-    return service.generate_response(user_message, language)
+    return service.generate_response(user_message)
