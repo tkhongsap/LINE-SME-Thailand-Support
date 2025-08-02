@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(git checkout:*)",
@@ -8,9 +9,10 @@
       "Bash(mkdir:*)",
       "Bash(git add:*)",
       "Bash(python:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git push:*)"
     ],
     "deny": []
-  },
-  "$schema": "https://json.schemastore.org/claude-code-settings.json"
+  }
 }

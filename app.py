@@ -1,9 +1,12 @@
 import os
 import logging
-from flask import Flask
+import time
+from functools import wraps
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import event
+from sqlalchemy import event, text
+from sqlalchemy.exc import OperationalError, DisconnectionError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Configure logging
@@ -19,6 +22,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# Admin configuration
+app.config["ADMIN_USERNAME"] = os.environ.get("ADMIN_USERNAME", "admin")
+app.config["ADMIN_PASSWORD_HASH"] = os.environ.get("ADMIN_PASSWORD_HASH", "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9")  # Default: admin123
+
 # Configure the database with performance optimizations
 database_url = os.environ.get("DATABASE_URL", "sqlite:///instance/linebot.db")
 
@@ -31,17 +38,19 @@ app.config["SQLALCHEMY_RECORD_QUERIES"] = False  # Disable query recording in pr
 is_postgres = database_url.startswith('postgresql')
 is_sqlite = database_url.startswith('sqlite')
 
-# Database-specific optimizations
+# Database-specific optimizations - fixed configuration
 if is_postgres:
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_size": 20,  # Connection pool size
-        "pool_recycle": 3600,  # Recycle connections every hour
+        "pool_size": 10,  # Connection pool size
+        "pool_recycle": 300,  # Recycle connections every 5 minutes
         "pool_pre_ping": True,  # Verify connections before use
-        "pool_timeout": 30,  # Connection timeout
-        "max_overflow": 40,  # Max overflow connections
+        "pool_timeout": 20,  # Connection timeout
+        "max_overflow": 20,  # Max overflow connections
+        "pool_reset_on_return": "commit",  # Reset connection state on return
         "connect_args": {
-            "connect_timeout": 10,
-            "application_name": "thai_sme_linebot"
+            "connect_timeout": 30,
+            "application_name": "thai_sme_linebot",
+            "sslmode": "prefer"  # Use SSL but don't fail if unavailable
         }
     }
 elif is_sqlite:
@@ -71,7 +80,14 @@ from routes.webhook import webhook_bp
 from routes.admin import admin_bp
 
 app.register_blueprint(webhook_bp)
-app.register_blueprint(admin_bp)
+app.register_blueprint(admin_bp, url_prefix='/admin')
+
+# Root route to redirect to admin
+@app.route('/')
+def index():
+    """Root route redirects to admin login"""
+    from flask import redirect, url_for
+    return redirect(url_for('admin.login'))
 
 with app.app_context():
     # Import models to ensure tables are created
@@ -84,7 +100,7 @@ with app.app_context():
     if is_postgres:
         try:
             # Enable database statistics collection for query optimization
-            db.session.execute("ANALYZE;")
+            db.session.execute(text("ANALYZE;"))
             db.session.commit()
             logging.info("Database statistics updated for PostgreSQL")
         except Exception as e:
@@ -94,12 +110,12 @@ with app.app_context():
     elif is_sqlite:
         try:
             # Enable WAL mode for better concurrency
-            db.session.execute("PRAGMA journal_mode=WAL;")
+            db.session.execute(text("PRAGMA journal_mode=WAL;"))
             # Optimize for performance
-            db.session.execute("PRAGMA synchronous=NORMAL;")
-            db.session.execute("PRAGMA cache_size=10000;")
-            db.session.execute("PRAGMA temp_store=memory;")
-            db.session.execute("PRAGMA mmap_size=268435456;")  # 256MB
+            db.session.execute(text("PRAGMA synchronous=NORMAL;"))
+            db.session.execute(text("PRAGMA cache_size=10000;"))
+            db.session.execute(text("PRAGMA temp_store=memory;"))
+            db.session.execute(text("PRAGMA mmap_size=268435456;"))  # 256MB
             db.session.commit()
             logging.info("SQLite performance optimizations applied")
         except Exception as e:

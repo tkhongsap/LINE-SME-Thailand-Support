@@ -1,14 +1,61 @@
 import logging
 from datetime import datetime, timedelta
-from sqlalchemy import desc, func, and_, or_
+from sqlalchemy import desc, func, and_, or_, text
 from sqlalchemy.orm import Query, load_only
+from sqlalchemy.exc import OperationalError, DisconnectionError, StatementError
 from app import db
 from models import Conversation
 from utils.logger import setup_logger
 from utils.validators import detect_language
 from config import Config
+import time
 
 logger = setup_logger(__name__)
+
+class DatabaseConnectionManager:
+    """Manages database connection health and retry logic"""
+    
+    @staticmethod
+    def test_connection():
+        """Test database connection health"""
+        try:
+            db.session.execute(text("SELECT 1"))
+            return True
+        except (OperationalError, DisconnectionError) as e:
+            logger.warning(f"Database connection test failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error in connection test: {e}")
+            return False
+    
+    @staticmethod
+    def recover_connection():
+        """Attempt to recover database connection"""
+        try:
+            db.session.close()  # Close potentially bad connection
+            db.session.execute(text("SELECT 1"))  # Test new connection
+            return True
+        except Exception as e:
+            logger.error(f"Failed to recover database connection: {e}")
+            return False
+    
+    @staticmethod
+    def execute_with_retry(operation, max_retries=3):
+        """Execute database operation with retry logic"""
+        for attempt in range(max_retries):
+            try:
+                return operation()
+            except (OperationalError, DisconnectionError) as e:
+                logger.warning(f"Database operation failed (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    # Try to recover connection
+                    DatabaseConnectionManager.recover_connection()
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    raise e
+            except Exception as e:
+                # Don't retry for non-connection errors
+                raise e
 
 class ConversationManager:
     def __init__(self):
@@ -16,35 +63,44 @@ class ConversationManager:
     
     def save_conversation(self, user_id, user_name, message_type, user_message, 
                          bot_response, file_name=None, file_type=None, language='en'):
-        """Save conversation to database"""
+        """Save conversation to database with improved error handling and retry logic"""
+        from flask import has_app_context
+        
         try:
-            from flask import has_app_context
-            
-            # Check if we're in application context
+            # Ensure we have application context
             if not has_app_context():
                 logger.warning("save_conversation called outside application context, skipping save")
                 return
             
-            conversation = Conversation(
-                user_id=user_id,
-                user_name=user_name,
-                message_type=message_type,
-                user_message=user_message,
-                bot_response=bot_response,
-                file_name=file_name,
-                file_type=file_type,
-                language=language
-            )
+            def save_operation():
+                conversation = Conversation()
+                conversation.user_id = user_id
+                conversation.user_name = user_name
+                conversation.message_type = message_type
+                conversation.user_message = user_message
+                conversation.bot_response = bot_response
+                conversation.file_name = file_name
+                conversation.file_type = file_type
+                conversation.language = language
+                conversation.user_id_hash = f"hash_{hash(user_id) % 100000}"
+                conversation.data_classification = 'confidential'
+                conversation.consent_version = '1.0'
+                
+                db.session.add(conversation)
+                db.session.commit()
+                logger.info(f"Saved conversation for user {user_id}")
+                return True
             
-            db.session.add(conversation)
-            db.session.commit()
-            
-            logger.info(f"Saved conversation for user {user_id}")
+            # Use the connection manager with retry logic
+            DatabaseConnectionManager.execute_with_retry(save_operation)
             
         except Exception as e:
-            logger.error(f"Error saving conversation: {e}")
-            if has_app_context():
-                db.session.rollback()
+            logger.error(f"Failed to save conversation after retries: {e}")
+            try:
+                if has_app_context():
+                    db.session.rollback()
+            except:
+                pass
     
     def get_conversation_history(self, user_id, limit=None, include_system=False):
         """Get conversation history for a user with performance optimization"""
@@ -96,9 +152,10 @@ class ConversationManager:
             return False
     
     def get_user_language(self, user_id):
-        """Get user's preferred language from recent conversations - optimized"""
+        """Get user's preferred language from recent conversations - optimized with connection retry"""
         try:
             from flask import has_app_context, current_app
+            from sqlalchemy.exc import OperationalError, DisconnectionError
             
             # Check if we're in application context
             if not has_app_context():
@@ -106,17 +163,30 @@ class ConversationManager:
                 logger.warning("get_user_language called outside application context, returning default")
                 return Config.DEFAULT_LANGUAGE
             
-            # Use optimized query with specific column loading
-            result = db.session.query(Conversation.language)\
-                .filter_by(user_id=user_id)\
-                .filter(Conversation.language.isnot(None))\
-                .order_by(desc(Conversation.created_at))\
-                .first()
-            
-            if result and result[0]:
-                return result[0]
-            
-            return Config.DEFAULT_LANGUAGE
+            # Add connection retry logic
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    # Use optimized query with specific column loading
+                    result = db.session.query(Conversation.language)\
+                        .filter_by(user_id=user_id)\
+                        .filter(Conversation.language.isnot(None))\
+                        .order_by(desc(Conversation.created_at))\
+                        .first()
+                    
+                    if result and result[0]:
+                        return result[0]
+                    
+                    return Config.DEFAULT_LANGUAGE
+                    
+                except (OperationalError, DisconnectionError) as e:
+                    logger.warning(f"Database connection error in get_user_language (attempt {attempt + 1}): {e}")
+                    if attempt < max_retries - 1:
+                        db.session.close()  # Close potentially bad connection
+                        continue
+                    else:
+                        logger.error("Failed to get user language after retries, returning default")
+                        return Config.DEFAULT_LANGUAGE
             
         except Exception as e:
             logger.error(f"Error getting user language: {e}")
@@ -412,16 +482,18 @@ class ConversationManager:
             # Prepare conversation objects
             conversations = []
             for data in conversations_data:
-                conv = Conversation(
-                    user_id=data.get('user_id'),
-                    user_name=data.get('user_name'),
-                    message_type=data.get('message_type', 'text'),
-                    user_message=data.get('user_message'),
-                    bot_response=data.get('bot_response'),
-                    file_name=data.get('file_name'),
-                    file_type=data.get('file_type'),
-                    language=data.get('language', Config.DEFAULT_LANGUAGE)
-                )
+                conv = Conversation()
+                conv.user_id = data.get('user_id')
+                conv.user_name = data.get('user_name')
+                conv.message_type = data.get('message_type', 'text')
+                conv.user_message = data.get('user_message')
+                conv.bot_response = data.get('bot_response')
+                conv.file_name = data.get('file_name')
+                conv.file_type = data.get('file_type')
+                conv.language = data.get('language', Config.DEFAULT_LANGUAGE)
+                conv.user_id_hash = f"hash_{hash(data.get('user_id', '')) % 100000}"
+                conv.data_classification = 'confidential'
+                conv.consent_version = '1.0'
                 conversations.append(conv)
             
             # Bulk insert with optimized settings
@@ -444,9 +516,9 @@ class ConversationManager:
             # Analyze tables for PostgreSQL
             if 'postgresql' in db.engine.url.drivername:
                 try:
-                    db.session.execute("ANALYZE conversations;")
-                    db.session.execute("ANALYZE system_logs;")
-                    db.session.execute("ANALYZE webhook_events;")
+                    db.session.execute(text("ANALYZE conversations;"))
+                    db.session.execute(text("ANALYZE system_logs;"))
+                    db.session.execute(text("ANALYZE webhook_events;"))
                     db.session.commit()
                     optimizations_applied.append("PostgreSQL ANALYZE completed")
                 except Exception as e:
@@ -455,8 +527,8 @@ class ConversationManager:
             # Vacuum for SQLite
             elif 'sqlite' in db.engine.url.drivername:
                 try:
-                    db.session.execute("VACUUM;")
-                    db.session.execute("PRAGMA optimize;")
+                    db.session.execute(text("VACUUM;"))
+                    db.session.execute(text("PRAGMA optimize;"))
                     db.session.commit()
                     optimizations_applied.append("SQLite VACUUM and OPTIMIZE completed")
                 except Exception as e:
@@ -482,7 +554,7 @@ class ConversationManager:
             # Table sizes
             metrics['table_sizes'] = {}
             for table_name in ['conversations', 'system_logs', 'webhook_events']:
-                count = db.session.execute(f"SELECT COUNT(*) FROM {table_name}").scalar()
+                count = db.session.execute(text(f"SELECT COUNT(*) FROM {table_name}")).scalar()
                 metrics['table_sizes'][table_name] = count
             
             # Recent activity (last 24 hours)
@@ -498,7 +570,7 @@ class ConversationManager:
             if 'postgresql' in db.engine.url.drivername:
                 try:
                     result = db.session.execute(
-                        "SELECT pg_size_pretty(pg_database_size(current_database()))"
+                        text("SELECT pg_size_pretty(pg_database_size(current_database()))")
                     ).scalar()
                     metrics['database_size'] = result
                 except Exception:

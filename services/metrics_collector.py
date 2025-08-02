@@ -148,9 +148,13 @@ class MetricsCollector:
         with self.buffer_lock:
             self.metrics_buffer['performance'].append(metric)
         
-        # Update in-memory tracking for fast access
+        # Update in-memory tracking for fast access with validation
         if metric_name == 'response_time':
-            self.response_times.append(value)
+            # Validate response time (should be in seconds, between 0 and 60)
+            if isinstance(value, (int, float)) and 0 <= value <= 60:
+                self.response_times.append(value)
+            else:
+                logger.warning(f"Invalid response time value: {value} (should be 0-60 seconds)")
         elif metric_name == 'error_count':
             self.error_counts[tags.get('error_type', 'unknown')] += 1
     
@@ -249,8 +253,21 @@ class MetricsCollector:
         """Get real-time metrics summary"""
         current_time = time.time()
         
-        # Performance metrics
-        avg_response_time = sum(self.response_times) / len(self.response_times) if self.response_times else 0
+        # Performance metrics with bounds checking
+        if self.response_times:
+            # Filter out obviously corrupt values (>60 seconds = 60000ms is unreasonable)
+            valid_times = [t for t in self.response_times if 0 <= t <= 60]
+            if valid_times:
+                avg_response_time = sum(valid_times) / len(valid_times)
+                # Log if we filtered out corrupt data
+                if len(valid_times) != len(self.response_times):
+                    logger.warning(f"Filtered {len(self.response_times) - len(valid_times)} corrupt response times")
+            else:
+                avg_response_time = 0
+                logger.error("All response times appear corrupt, using 0")
+        else:
+            avg_response_time = 0
+        
         total_errors = sum(self.error_counts.values())
         
         # AI usage metrics
@@ -265,7 +282,7 @@ class MetricsCollector:
         return {
             'timestamp': current_time,
             'performance': {
-                'avg_response_time_ms': round(avg_response_time * 1000, 2),
+                'avg_response_time_ms': round(max(0, min(avg_response_time * 1000, 60000)), 2),  # Cap at 60 seconds
                 'total_errors': total_errors,
                 'requests_per_minute': self._calculate_requests_per_minute(),
                 'error_rate_percent': self._calculate_error_rate()

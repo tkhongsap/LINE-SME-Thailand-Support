@@ -4,7 +4,7 @@ import secrets
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, jsonify, request, session, redirect, url_for, flash, current_app
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, text
 from models import Conversation, SystemLog, WebhookEvent
 from services.conversation_manager import ConversationManager
 from services.openai_service import OpenAIService
@@ -495,7 +495,7 @@ def get_system_status():
         # Database connection test
         db_status = 'healthy'
         try:
-            db.session.execute('SELECT 1')
+            db.session.execute(text('SELECT 1'))
         except Exception:
             db_status = 'error'
         
@@ -1184,7 +1184,7 @@ def get_detailed_system_health():
         # Check database response time
         db_start = time.time()
         try:
-            db.session.execute('SELECT 1')
+            db.session.execute(text('SELECT 1'))
             db_response_time = (time.time() - db_start) * 1000
             db_health = 'healthy' if db_response_time < 100 else 'slow' if db_response_time < 500 else 'critical'
         except Exception:
