@@ -5,36 +5,37 @@ import time
 from typing import Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2.pool import ThreadedConnectionPool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseService:
-    """Simplified async logging service for Replit PostgreSQL"""
+    """Ultra-fast fire-and-forget logging service for Replit PostgreSQL"""
     
     def __init__(self):
-        """Initialize database connection using Replit's DATABASE_URL"""
+        """Initialize direct database connection for optimal performance"""
         self.database_url = os.environ.get('DATABASE_URL')
+        self.console_only = os.environ.get('CONSOLE_ONLY_LOGGING', 'false').lower() == 'true'
         
-        if not self.database_url:
+        if not self.database_url and not self.console_only:
             raise ValueError("DATABASE_URL not found in environment variables")
         
-        # Create connection pool optimized for Replit
+        # Use direct connection instead of pooling for minimal overhead
         try:
-            self.pool = ThreadedConnectionPool(
-                minconn=1,  # Minimum connections for Replit
-                maxconn=5,  # Maximum connections for Replit constraints
-                dsn=self.database_url
-            )
-            logging.info("Database connection pool initialized")
-            
-            # Initialize schema
-            self._init_schema()
+            if self.console_only:
+                logging.info("Console-only logging mode enabled for maximum performance")
+            else:
+                logging.info("Database direct connection service initialized")
+                # Initialize schema with direct connection
+                self._init_schema()
             
         except Exception as e:
             logging.error(f"Database initialization error: {e}")
             raise
+    
+    def _get_direct_connection(self):
+        """Get direct database connection for optimal performance"""
+        return psycopg2.connect(self.database_url)
     
     def _init_schema(self):
         """Create minimal database schema if not exists"""
@@ -53,12 +54,12 @@ class DatabaseService:
         """
         
         try:
-            conn = self.pool.getconn()
+            conn = self._get_direct_connection()
             cursor = conn.cursor()
             cursor.execute(schema_sql)
             conn.commit()
             cursor.close()
-            self.pool.putconn(conn)
+            conn.close()
             logging.info("Database schema initialized")
             
         except Exception as e:
@@ -67,7 +68,7 @@ class DatabaseService:
     def log_conversation(self, user_id: str, message: str, response: str, 
                         response_time_ms: Optional[int] = None):
         """
-        Async log conversation to database (non-blocking)
+        Ultra-fast fire-and-forget logging (console-only or database)
         
         Args:
             user_id: LINE user ID
@@ -75,9 +76,14 @@ class DatabaseService:
             response: Bot's response
             response_time_ms: Response time in milliseconds
         """
+        if self.console_only:
+            # Console-only logging for maximum performance
+            logging.info(f"💬 {user_id[:10]}... | {response_time_ms}ms | {message[:30]}... → {response[:30]}...")
+            return
+        
         def _async_log():
             try:
-                conn = self.pool.getconn()
+                conn = self._get_direct_connection()
                 cursor = conn.cursor()
                 
                 cursor.execute(
@@ -88,7 +94,7 @@ class DatabaseService:
                 
                 conn.commit()
                 cursor.close()
-                self.pool.putconn(conn)
+                conn.close()
                 logging.info(f"Conversation logged for user: {user_id[:10]}...")
                 
             except Exception as e:
@@ -102,12 +108,12 @@ class DatabaseService:
     def health_check(self) -> bool:
         """Test database connectivity for health checks"""
         try:
-            conn = self.pool.getconn()
+            conn = self._get_direct_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
             result = cursor.fetchone()
             cursor.close()
-            self.pool.putconn(conn)
+            conn.close()
             return result is not None
             
         except Exception as e:

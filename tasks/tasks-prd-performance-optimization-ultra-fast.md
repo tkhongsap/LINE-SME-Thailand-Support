@@ -1,0 +1,54 @@
+# Task List: Ultra-Fast LINE Bot Performance Optimization
+
+## Relevant Files
+
+- `openai_service.py` - Contains language parameter logic and separate Thai/English prompts that need to be unified
+- `app_simplified.py` - Main webhook handler that currently passes language parameters and needs streamlining
+- `database.py` - Database service with connection pooling overhead that needs fire-and-forget optimization
+- `line_service.py` - LINE API integration that may need timeout adjustments for optimization
+- `main.py` - Entry point that may need minimal updates for performance monitoring
+
+### Notes
+
+- Focus on eliminating language detection overhead (~50ms savings per request)
+- Remove database connection pooling overhead (~80ms savings per request)
+- Target overall response time reduction from 0.7-1.5s to 0.5-1.0s
+- Maintain all existing security (signature verification) and functionality
+- Keep codebase under 10 files and memory usage under 400MB per Replit constraints
+
+## Tasks
+
+- [x] 1.0 Remove Language Parameter System
+  - [x] 1.1 Remove `language` parameter from `generate_response()` method in `openai_service.py`
+  - [x] 1.2 Update `app_simplified.py` webhook handler to stop passing `'th'` language parameter
+  - [x] 1.3 Remove language-specific fallback messages from `openai_service.py`
+  - [x] 1.4 Remove any language detection logic from webhook processing flow
+  - [x] 1.5 Update function signatures and method calls to eliminate language context passing
+
+- [x] 2.0 Implement Universal System Prompt
+  - [x] 2.1 Replace separate Thai/English system prompts with single universal prompt in `openai_service.py`
+  - [x] 2.2 Design universal prompt that instructs AI to respond in user's input language
+  - [x] 2.3 Preserve Thai SME business context without forcing Thai responses
+  - [x] 2.4 Optimize prompt length for faster OpenAI processing (~50ms target savings)
+  - [x] 2.5 Test universal prompt with both Thai and English inputs to ensure quality
+
+- [x] 3.0 Optimize Database Operations with Fire-and-Forget Logging
+  - [x] 3.1 Remove `ThreadedConnectionPool` from `database.py` to eliminate connection overhead
+  - [x] 3.2 Implement direct database connection with daemon thread for fire-and-forget logging
+  - [x] 3.3 Ensure database operations never block webhook response (~80ms target savings)
+  - [x] 3.4 Add console-only logging option as alternative to database logging
+  - [x] 3.5 Verify async logging maintains conversation history without performance impact
+
+- [x] 4.0 Streamline Webhook Processing Flow
+  - [x] 4.1 Remove OpenAI timeout constraints or increase to 30 seconds in `openai_service.py`
+  - [x] 4.2 Eliminate unnecessary processing loops in `app_simplified.py` webhook handler
+  - [x] 4.3 Maintain LINE signature verification for security without performance impact
+  - [x] 4.4 Optimize error handling to avoid language-dependent fallback logic
+  - [x] 4.5 Implement direct OpenAI call flow: Webhook → Verification → OpenAI → Response
+
+- [x] 5.0 Performance Monitoring and Validation
+  - [x] 5.1 Add response time tracking with start/end timestamps in webhook handler
+  - [x] 5.2 Add memory usage monitoring for Replit constraints (target <400MB)
+  - [x] 5.3 Log performance metrics to console for Replit visibility
+  - [x] 5.4 Measure and log OpenAI API latency separately from total response time
+  - [x] 5.5 Validate performance improvements meet target: 0.7-1.5s → 0.5-1.0s response time
