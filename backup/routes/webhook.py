@@ -781,21 +781,25 @@ def handle_text_message_async(message, reply_token, user_id, user_context):
             )
             
             logger.info(f"Routing decision for user {user_id}: {routing_decision['decision']} "
-                       f"(confidence: {routing_decision['confidence']:.2f}) - {routing_decision['analysis']['reason']}")
+                       f"(confidence: {routing_decision['confidence']:.2f}) - {routing_decision['analysis']['reason']} "
+                       f"| Fast path keywords: {routing_decision['analysis'].get('has_fast_keywords', False)} "
+                       f"| Word count: {routing_decision['analysis'].get('word_count', 'unknown')} "
+                       f"| Route to fast path: {routing_decision['route_to_fast_path']}")
             
             # FAST PATH: Direct processing for simple queries
             if routing_decision['route_to_fast_path']:
-                # Detect language in Flask context for fast path
+                # Detect language without database access for fast path
+                from utils.validators import detect_language
+                detected_language = detect_language(user_message)
+                user_context['language'] = detected_language
+                
                 try:
-                    detected_language = conversation_manager.detect_and_update_language(user_id, user_message)
-                    user_context['language'] = detected_language
+                    return handle_fast_path_text_message(
+                        user_message, reply_token, user_id, user_context, routing_decision
+                    )
                 except Exception as e:
-                    logger.warning(f"Language detection failed in fast path: {e}")
-                    user_context['language'] = Config.DEFAULT_LANGUAGE
-                    
-                return handle_fast_path_text_message(
-                    user_message, reply_token, user_id, user_context, routing_decision
-                )
+                    logger.error(f"Fast path failed for user {user_id}, falling back to full pipeline: {e}")
+                    # Continue to full pipeline below
         
         # FULL PIPELINE: Complex queries go through complete processing
         task_id = message_queue.enqueue_text_processing(

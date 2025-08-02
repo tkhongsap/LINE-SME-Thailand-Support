@@ -1,27 +1,12 @@
 [project]
-name = "repl-nix-workspace"
-version = "0.1.0"
-description = "Add your description here"
+name = "thai-sme-linebot-simplified"
+version = "2.0.0"
+description = "Simplified LINE Bot for Thai SME - Replit optimized with 5-file architecture"
 requires-python = ">=3.11"
 dependencies = [
-    "email-validator>=2.2.0",
     "flask>=3.1.1",
-    "flask-sqlalchemy>=3.1.1",
-    "gunicorn>=23.0.0",
-    "line-bot-sdk>=3.17.1",
+    "gunicorn>=23.0.0", 
     "openai>=1.97.1",
-    "openpyxl>=3.1.5",
     "psycopg2-binary>=2.9.10",
-    "pypdf2>=3.0.1",
-    "python-docx>=1.2.0",
-    "python-pptx>=1.0.2",
-    "sqlalchemy>=2.0.42",
-    "werkzeug>=3.1.3",
     "requests>=2.31.0",
-    "pillow>=10.0.0",
-    "redis>=5.0.0",
-    "cryptography>=41.0.0",
-    "pandas>=2.0.0",
-    "pytesseract>=0.3.10",
-    "psutil>=7.0.0",
 ]

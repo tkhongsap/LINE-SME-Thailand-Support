@@ -156,12 +156,12 @@ class ConversationManager:
         try:
             from flask import has_app_context, current_app
             from sqlalchemy.exc import OperationalError, DisconnectionError
+            from utils.flask_context import get_user_language_safe
             
             # Check if we're in application context
             if not has_app_context():
-                # If not in context, return default language to avoid errors
-                logger.warning("get_user_language called outside application context, returning default")
-                return Config.DEFAULT_LANGUAGE
+                # Use safe context-aware method instead of warning
+                return get_user_language_safe(user_id, Config.DEFAULT_LANGUAGE)
             
             # Add connection retry logic
             max_retries = 2
