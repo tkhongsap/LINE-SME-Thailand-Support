@@ -103,7 +103,7 @@ class OpenAIService:
 
         base_prompt = f"""
         LANGUAGE OVERRIDE: The user message "{user_message}" - YOU MUST respond in the exact same language as this message. 
-        If ANY English words: respond ONLY in English. If ANY Thai characters: respond ONLY in Thai.
+        If ANY Thai characters: respond ONLY in Thai. If ANY English words: respond ONLY in English. 
         This language rule overrides everything else.
 
         You are a practical advisor for small business owners in Thailand.
