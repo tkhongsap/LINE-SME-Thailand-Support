@@ -172,7 +172,7 @@ class OpenAIService:
         if not conversation_history:
             return []
 
-        # Implement sliding window - keep last 6 exchanges (100 messages) to stay within token limits
+        # Implement sliding window - keep last 50 exchanges (100 messages) to stay within token limits
         max_history_items = 100
         recent_history = conversation_history[-max_history_items:] if len(
             conversation_history) > max_history_items else conversation_history
